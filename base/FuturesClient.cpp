@@ -46,7 +46,11 @@ FuturesClient::FuturesClient(boost::asio::io_context& io_context,
     : io_context_(io_context),
       socket_(io_context),
       request_id_counter_(0) {
+#ifndef CLIENT_DEBUG_SIMULATION
     do_connect(endpoints);
+#else
+    std::cout << "[Client] Debug Mode (Simulation) Enabled. Network disabled." << std::endl;
+#endif
 }
 
 void FuturesClient::set_message_callback(MessageCallback callback) {
@@ -148,6 +152,12 @@ std::string FuturesClient::generate_request_id() {
 }
 
 void FuturesClient::send_json(const json& j) {
+#ifdef CLIENT_DEBUG_SIMULATION
+    std::cout << "[Debug] Sending JSON: " << j.dump() << std::endl;
+    simulate_response(j);
+    return;
+#endif
+
     std::string s = j.dump();
     ChatMessage msg;
     msg.body_length(s.size());
@@ -246,3 +256,37 @@ void FuturesClient::do_write() {
             }
         });
 }
+
+#ifdef CLIENT_DEBUG_SIMULATION
+void FuturesClient::simulate_response(const json& request) {
+    // 模拟服务器处理延迟
+    // 在实际场景中，这里可以根据 request["type"] 构造不同的回复
+    
+    json response;
+    response["type"] = "response";
+    if (request.contains("request_id")) {
+        response["request_id"] = request["request_id"];
+    }
+    response["success"] = true;
+    
+    std::string req_type = request.value("type", "unknown");
+    response["message"] = "Debug: Operation '" + req_type + "' simulated successfully.";
+
+    // 如果是查询，模拟返回一些数据
+    if (req_type == "query_warnings") {
+        json warnings = json::array();
+        json w1;
+        w1["order_id"] = "mock_1";
+        w1["symbol"] = "BTCUSDT";
+        w1["type"] = "price";
+        w1["max_price"] = 50000.0;
+        warnings.push_back(w1);
+        response["data"] = warnings;
+    }
+
+    // 使用 post 将回调放入 io_context 队列，模拟异步接收
+    boost::asio::post(io_context_, [this, response]() {
+        handle_message(response);
+    });
+}
+#endif

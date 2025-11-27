@@ -38,6 +38,22 @@ int main(int argc, char* argv[]) {
         // 在 UI 程序中，通常会在单独的线程运行 io_context，或者集成到 UI 的事件循环中
         std::thread t([&io_context]() { io_context.run(); });
 
+#ifdef CLIENT_DEBUG_SIMULATION
+        // 模拟用户操作
+        std::cout << "[Main] 模拟用户登录..." << std::endl;
+        c.login("test_user", "123456");
+        
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        
+        std::cout << "[Main] 模拟添加预警..." << std::endl;
+        c.add_price_warning("acc1", "BTCUSDT", 60000, 50000);
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        std::cout << "[Main] 模拟查询预警..." << std::endl;
+        c.query_warnings("all");
+#endif
+
         // 保持主线程运行 (在实际 UI 程序中，这里是 UI 的主事件循环)
         t.join();
 

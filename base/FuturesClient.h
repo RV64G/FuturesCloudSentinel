@@ -11,6 +11,9 @@
 using boost::asio::ip::tcp;
 using json = nlohmann::json;
 
+// Uncomment the following line to enable debug simulation mode
+#define CLIENT_DEBUG_SIMULATION
+
 // --- 协议定义 ---
 class ChatMessage {
 public:
@@ -64,6 +67,10 @@ private:
     void do_read_body();
     void handle_message(const json& j);
     void do_write();
+
+#ifdef CLIENT_DEBUG_SIMULATION
+    void simulate_response(const json& request);
+#endif
 
     boost::asio::io_context& io_context_;
     tcp::socket socket_;
