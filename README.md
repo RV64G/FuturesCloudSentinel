@@ -1,4 +1,4 @@
-# 期货云端预警系统客户端 (Futures Cloud Warning Client)
+# 期货云端预警系统客户端
 
 这是一个基于 C++17 和 Boost.Asio 开发的高性能 TCP 客户端，专为期货云端预警系统设计。它实现了完整的通信协议，支持异步消息收发、JSON 数据解析、业务逻辑封装以及 UI 回调集成。
 
@@ -82,9 +82,8 @@ boost::asio::io_context io_context;
 tcp::resolver resolver(io_context);
 auto endpoints = resolver.resolve("127.0.0.1", "8888");
 
-// 第三个参数控制是否开启调试模式
-bool debug_mode = false; 
-FuturesClient client(io_context, endpoints, debug_mode);
+// 实例化客户端
+FuturesClient client(io_context, endpoints);
 ```
 
 ### 2. 注册 UI 回调
