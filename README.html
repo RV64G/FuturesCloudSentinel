@@ -2,7 +2,7 @@
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>&#x671f;&#x8d27;&#x4e91;&#x7aef;&#x9884;&#x8b66;&#x7cfb;&#x7edf;&#x5ba2;&#x6237;&#x7aef; &lpar;Futures Cloud Warning Client&rpar;</title>
+            <title>&#x671f;&#x8d27;&#x4e91;&#x7aef;&#x9884;&#x8b66;&#x7cfb;&#x7edf;&#x5ba2;&#x6237;&#x7aef;</title>
             <style>
 /* From extension vscode.github */
 /*---------------------------------------------------------------------------------------------
@@ -138,7 +138,7 @@
         
         </head>
         <body class="vscode-body vscode-light">
-            <h1 id="期货云端预警系统客户端-futures-cloud-warning-client">期货云端预警系统客户端 (Futures Cloud Warning Client)</h1>
+            <h1 id="期货云端预警系统客户端">期货云端预警系统客户端</h1>
 <p>这是一个基于 C++17 和 Boost.Asio 开发的高性能 TCP 客户端，专为期货云端预警系统设计。它实现了完整的通信协议，支持异步消息收发、JSON 数据解析、业务逻辑封装以及 UI 回调集成。</p>
 <h2 id="-功能特性">📋 功能特性</h2>
 <ul>
@@ -234,9 +234,8 @@
 <span class="hljs-function">tcp::resolver <span class="hljs-title">resolver</span><span class="hljs-params">(io_context)</span></span>;
 <span class="hljs-keyword">auto</span> endpoints = resolver.<span class="hljs-built_in">resolve</span>(<span class="hljs-string">&quot;127.0.0.1&quot;</span>, <span class="hljs-string">&quot;8888&quot;</span>);
 
-<span class="hljs-comment">// 第三个参数控制是否开启调试模式</span>
-<span class="hljs-type">bool</span> debug_mode = <span class="hljs-literal">false</span>; 
-<span class="hljs-function">FuturesClient <span class="hljs-title">client</span><span class="hljs-params">(io_context, endpoints, debug_mode)</span></span>;
+<span class="hljs-comment">// 实例化客户端</span>
+<span class="hljs-function">FuturesClient <span class="hljs-title">client</span><span class="hljs-params">(io_context, endpoints)</span></span>;
 </code></pre>
 <h3 id="2-注册-ui-回调">2. 注册 UI 回调</h3>
 <p>在 UI 初始化代码中设置回调，处理服务器推送的消息：</p>
