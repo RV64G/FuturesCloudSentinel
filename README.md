@@ -155,3 +155,84 @@ t.join();
 
 3.  **中文乱码**
     *   编译参数已添加 `/utf-8`，请确保源文件保存为 UTF-8 编码。
+
+
+# FuturesAlarmingClient
+WebStock Futures Alarming Client
+
+## 架构设计 (Architecture)
+
+本项目采用 **Qt 6** + **QML** 开发，遵循 **Model-View** 架构模式。
+
+### 页面结构 (Page Structure)
+
+1.  **LoginPage**: 启动页。负责 CTP 连接配置与登录。
+2.  **ShellPage**: 主骨架。包含左侧抽屉式导航栏 (`Drawer`)，负责页面路由。
+3.  **AlarmPage**: 核心业务页。采用 Master-Detail 布局 (`SplitView`)，左侧为预警单列表，右侧为编辑面板。
+4.  **LogPage**: 日志监控页。展示系统运行日志与交易回报。
+5.  **SettingsPage**: 应用偏好设置页。
+
+### 文件结构 (File Structure)
+
+*   **ClientUI/**
+    *   `main.cpp`: 应用程序入口，负责加载 QML 引擎和注册 C++ 类型。
+    *   `main.qml`: 应用主窗口，负责初始路由（登录页/主页）。
+    *   **Views/** (QML):
+        *   `LoginPage.qml`: 登录界面。
+        *   `ShellPage.qml`: 主界面骨架。
+        *   `AlarmPage.qml`: 预警监控界面。
+        *   `LogPage.qml`: 日志界面。
+        *   `SettingsPage.qml`: 设置界面。
+    *   **Models/** (C++):
+        *   (待实现) `AlarmModel`: 预警单列表模型 (`QAbstractListModel`)。
+        *   (待实现) `LogModel`: 日志列表模型 (`QAbstractListModel`)。
+
+### 依赖管理 (Dependency Management)
+
+本项目建议使用 **vcpkg** 进行第三方库管理。
+
+#### 推荐依赖包 (Recommended Packages)
+
+*   **JSON 处理**: `nlohmann-json` (现代 C++ JSON 库，语法类似 Python)
+*   **数据库**: `sqlite3` (轻量级本地存储)
+*   **网络通信**: `cpprestsdk` (微软出品的 C++ REST SDK) 或 `curl`
+*   **MVVM 辅助**: `Microsoft.Toolkit.Mvvm` (如果支持 C++) 或手动实现 `INotifyPropertyChanged`。
+
+#### 如何使用 vcpkg
+
+1.  **安装 vcpkg**:
+    ```powershell
+    git clone https://github.com/microsoft/vcpkg
+    .\vcpkg\bootstrap-vcpkg.bat
+    ```
+2.  **集成到 Visual Studio**:
+    ```powershell
+    .\vcpkg\vcpkg integrate install
+    ```
+3.  **安装包**:
+    ```powershell
+    .\vcpkg\vcpkg install nlohmann-json sqlite3 cpprestsdk:x64-windows
+    ```
+
+### TODO: 待讨论的接口定义 (Interfaces to be Discussed)
+
+以下 Model 结构目前仅为 UI 绑定的骨架，具体业务字段需后续讨论确定：
+
+#### 1. AlarmItem (预警单)
+*   目前包含: `InstrumentId`, `LastPrice`, `ConditionDesc`, `Status`
+*   **待补充**:
+    *   具体的触发条件结构体 (如 `ConditionType`, `Threshold`)
+    *   具体的下单参数结构体 (如 `Direction`, `Offset`, `Volume`)
+    *   与 CTP `CThostFtdcInputOrderField` 的映射关系
+
+#### 2. LogItem (日志)
+*   目前包含: `Time`, `Level`, `Message`
+*   **待补充**:
+    *   日志持久化方案 (SQLite 表结构)
+    *   日志级别枚举 (Info, Warning, Error, Debug)
+
+#### 3. CTP 接口封装
+*   需要定义一个单例 `CtpService` 类，负责：
+    *   管理 `CThostFtdcMdApi` 和 `CThostFtdcTraderApi` 实例
+    *   处理线程调度 (从 CTP 线程 -> UI 线程)
+    *   提供 `Connect`, `Login`, `Subscribe` 等高层接口
