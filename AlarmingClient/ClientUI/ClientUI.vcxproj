@@ -17,19 +17,20 @@
     <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>
     <VcpkgEnabled>true</VcpkgEnabled>
     <VcpkgManifestEnabled>true</VcpkgManifestEnabled>
+    <VcpkgManifestFile>$(ProjectDir)..\vcpkg.json</VcpkgManifestFile>
     <VcpkgRoot>$(ProjectDir)..\..\vcpkg</VcpkgRoot>
   </PropertyGroup>
   <Import Project="$(ProjectDir)..\..\vcpkg\scripts\buildsystems\msbuild\vcpkg.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
@@ -64,10 +65,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <IncludePath>$(ProjectDir)..\..\base;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\vcpkg_installed\x64-windows\include;$(ProjectDir)..\..\base;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <IncludePath>$(ProjectDir)..\..\base;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\vcpkg_installed\x64-windows\include;$(ProjectDir)..\..\base;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -114,6 +115,7 @@
     <ClInclude Include="..\..\base\FuturesClient.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\ContractCode.CSV" />
     <None Include="Main.qml" />
     <None Include="..\vcpkg.json" />
   </ItemGroup>

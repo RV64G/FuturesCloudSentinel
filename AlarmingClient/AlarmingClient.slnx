@@ -2,5 +2,5 @@
   <Configurations>
     <Platform Name="x64" />
   </Configurations>
-  <Project Path="ClientUI/ClientUI.vcxproj" />
+  <Project Path="ClientUI/ClientUI.vcxproj" Id="257e1236-bff6-4984-8c74-4891fc315115" />
 </Solution>

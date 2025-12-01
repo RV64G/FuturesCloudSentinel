@@ -40,7 +40,7 @@ Page {
         // Right: Detail/Edit Panel
         Rectangle {
             SplitView.fillWidth: true
-            color: "white"
+            color: palette.window // Use system palette for adaptive background
             
             ColumnLayout {
                 anchors.fill: parent
@@ -59,7 +59,11 @@ Page {
                     columnSpacing: 10
 
                     Label { text: "Instrument:" }
-                    TextField { placeholderText: "e.g. au2306"; Layout.fillWidth: true }
+                    ComboBox { 
+                        model: backend.contractCodes 
+                        editable: true
+                        Layout.fillWidth: true 
+                    }
 
                     Label { text: "Condition:" }
                     ComboBox {

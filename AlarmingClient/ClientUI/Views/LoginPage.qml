@@ -45,12 +45,7 @@ Page {
             Layout.fillWidth: true
         }
 
-        TextField {
-            id: frontAddrField
-            placeholderText: "Front Address"
-            Layout.fillWidth: true
-            text: "tcp://180.168.146.187:10130"
-        }
+        // Front address removed: server connection address is no longer user-input.
 
         Button {
             text: "Login"
@@ -63,7 +58,7 @@ Page {
                     return
                 }
                 loginPage.isBusy = true
-                backend.login(userIdField.text, passwordField.text, brokerIdField.text, frontAddrField.text)
+                backend.login(userIdField.text, passwordField.text, brokerIdField.text, loginPage.defaultFrontAddr)
             }
         }
 
@@ -80,6 +75,7 @@ Page {
     BusyIndicator {
         anchors.centerIn: parent
         running: loginPage.isBusy
+        visible: running
     }
 
     Popup {
