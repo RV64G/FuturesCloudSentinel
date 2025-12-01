@@ -19,6 +19,7 @@ Popup {
 
     property alias text: messageLabel.text
     property string type: "info" // info, error, success
+    property var theme: null
 
     function showMessage(msg, msgType) {
         text = msg
@@ -38,9 +39,28 @@ Popup {
         closeTimer.restart()
     }
 
+    // Helper to get background color based on type
+    function getBackgroundColor() {
+        if (!theme) return popup.type === "error" ? "#ffdddd" : (popup.type === "success" ? "#ddffdd" : "#f0f0f0")
+        switch (type) {
+            case "error": return theme.colorErrorContainer
+            case "success": return theme.colorSuccessContainer
+            default: return theme.surfaceVariant // or primaryContainer
+        }
+    }
+
+    function getContentColor() {
+        if (!theme) return "#000000"
+        switch (type) {
+            case "error": return theme.colorOnErrorContainer
+            case "success": return theme.colorOnSuccessContainer
+            default: return theme.colorOnSurfaceVariant
+        }
+    }
+
     background: Rectangle {
-        color: popup.type === "error" ? "#ffdddd" : (popup.type === "success" ? "#ddffdd" : "#f0f0f0")
-        border.color: popup.type === "error" ? "red" : (popup.type === "success" ? "green" : "gray")
+        color: getBackgroundColor()
+        border.color: "transparent" // Monet usually doesn't use borders for toasts, just color
         radius: 5
     }
     
@@ -49,13 +69,15 @@ Popup {
         Label {
             id: iconLabel
             text: popup.type === "error" ? "❌" : (popup.type === "success" ? "✅" : "ℹ️")
+            color: getContentColor()
             font.pixelSize: 20
         }
         Label {
             id: messageLabel
+            text: "Message"
+            color: getContentColor()
             Layout.fillWidth: true
             wrapMode: Text.Wrap
-            color: "black"
         }
     }
 }

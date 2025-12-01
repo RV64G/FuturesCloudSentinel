@@ -4,6 +4,9 @@ import QtQuick.Layouts
 
 Page {
     title: "Settings"
+    property var theme: ApplicationWindow.window.theme
+
+    background: Rectangle { color: theme.background }
 
     ColumnLayout {
         anchors.fill: parent
@@ -13,18 +16,34 @@ Page {
         Label { text: "Appearance"; font.bold: true; font.pixelSize: 16 }
         
         RowLayout {
-            Label { text: "Theme Color" }
-            ComboBox {
-                model: ["System", "Light", "Dark"]
+            Label { text: "Theme Mode" }
+            Switch {
+                text: checked ? "Dark" : "Light"
+                checked: theme.isDark
+                onCheckedChanged: theme.isDark = checked
             }
         }
 
         RowLayout {
-            Label { text: "Accent Color" }
-            Rectangle { width: 20; height: 20; color: "#0078d4"; radius: 10 }
-            Rectangle { width: 20; height: 20; color: "#d83b01"; radius: 10 }
-            Rectangle { width: 20; height: 20; color: "#107c10"; radius: 10 }
+            Label { text: "Accent Color (Monet)" }
+            Repeater {
+                // Use a fixed list for now to avoid SystemPalette issues in Repeater model
+                model: ["#0078d4", "#d83b01", "#107c10", "#6200EE", "#009688"]
+                delegate: Rectangle {
+                    width: 24; height: 24; radius: 12
+                    color: modelData
+                    border.width: theme.seedColor == modelData ? 2 : 0
+                    border.color: theme.colorOnBackground
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: theme.setSeedColor(modelData)
+                    }
+                }
+            }
         }
+        
+        // SystemPalette { id: sysPal; colorGroup: SystemPalette.Active } // Removed to avoid issues
 
         MenuSeparator { Layout.fillWidth: true }
 

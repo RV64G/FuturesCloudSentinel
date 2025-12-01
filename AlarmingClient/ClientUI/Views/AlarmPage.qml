@@ -4,6 +4,9 @@ import QtQuick.Layouts
 
 Page {
     title: "Alarm Monitor"
+    property var theme: ApplicationWindow.window.theme
+
+    background: Rectangle { color: theme.background }
 
     Component.onCompleted: backend.queryWarnings()
 
@@ -28,21 +31,21 @@ Page {
                         Label { 
                             text: modelData.contract_name ? modelData.contract_name : ""
                             font.pixelSize: 12
-                            color: "#888888" // Lighter gray
+                            color: theme.colorOutline
                             Layout.alignment: Qt.AlignBaseline
                         }
                         Item { Layout.fillWidth: true }
                         Label { 
                             text: modelData.type === "time" 
-                                  ? ("⏰ " + (modelData.trigger_time || ""))
+                                  ? ((modelData.trigger_time || ""))
                                   : ((modelData.max_price ? "≥ " + modelData.max_price : "") + 
                                      (modelData.max_price && modelData.min_price ? " | " : "") +
                                      (modelData.min_price ? "≤ " + modelData.min_price : ""))
                             
-                            color: modelData.type === "time" ? "blue" : "red" 
+                            color: theme.primary
                         }
                     }
-                    Label { text: modelData.type; font.pixelSize: 12; color: "gray" }
+                    Label { text: modelData.type; font.pixelSize: 12; color: theme.colorOnSurfaceVariant }
                 }
                 highlighted: ListView.isCurrentItem
                 onClicked: {
@@ -58,7 +61,7 @@ Page {
         Rectangle {
             id: detailPanel
             SplitView.fillWidth: true
-            color: palette.window // Use system palette for adaptive background
+            color: theme.surface // Use theme surface color
             
             property string currentOrderId: ""
             property bool isModifyMode: false
@@ -161,7 +164,7 @@ Page {
                     }
 
                     Label { 
-                        text: "上限价格 (>=):" 
+                        text: "上限价格:" 
                         visible: typeCombo.currentIndex === 0
                     }
                     TextField { 
@@ -173,7 +176,7 @@ Page {
                     }
 
                     Label { 
-                        text: "下限价格 (<=):" 
+                        text: "下限价格:" 
                         visible: typeCombo.currentIndex === 0
                     }
                     TextField { 

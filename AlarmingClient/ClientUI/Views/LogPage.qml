@@ -4,6 +4,9 @@ import QtQuick.Layouts
 
 Page {
     title: "System Logs"
+    property var theme: ApplicationWindow.window.theme
+
+    background: Rectangle { color: theme.background }
 
     ListView {
         id: logListView

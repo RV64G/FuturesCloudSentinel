@@ -5,6 +5,9 @@ import QtQuick.Layouts
 Page {
     id: loginPage
     title: "Login"
+    
+    property var theme: ApplicationWindow.window ? ApplicationWindow.window.theme : null
+    background: Rectangle { color: theme ? theme.background : "#ffffff" }
 
     signal loginSuccess()
 
