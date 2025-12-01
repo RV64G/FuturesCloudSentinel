@@ -52,6 +52,20 @@ Page {
             checked: true
         }
 
+        MenuSeparator { Layout.fillWidth: true }
+
+        Button {
+            text: "Logout"
+            Layout.alignment: Qt.AlignRight
+            palette.buttonText: "red"
+            onClicked: {
+                backend.clearCredentials()
+                if (ApplicationWindow.window && ApplicationWindow.window.logout) {
+                    ApplicationWindow.window.logout()
+                }
+            }
+        }
+
         Item { Layout.fillHeight: true }
     }
 }

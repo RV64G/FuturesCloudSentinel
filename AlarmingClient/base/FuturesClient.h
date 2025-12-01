@@ -160,6 +160,14 @@ public:
      */
     void close();
 
+#ifdef CLIENT_DEBUG_SIMULATION
+    /**
+     * @brief 模拟触发预警 (调试用)
+     * 手动触发一条预警消息推送给客户端
+     */
+    void simulate_alert_trigger(const std::string& symbol, double price, const std::string& message);
+#endif
+
 private:
     // --- 内部辅助方法 ---
     std::string generate_request_id();          ///< 生成唯一的请求 ID
@@ -179,12 +187,6 @@ private:
      * 在不连接真实服务器的情况下，构造虚假的响应数据并触发回调。
      */
     void simulate_response(const json& request);
-
-    /**
-     * @brief 模拟触发预警 (调试用)
-     * 手动触发一条预警消息推送给客户端
-     */
-    void simulate_alert_trigger(const std::string& symbol, double price, const std::string& message);
 
     std::vector<json> mock_warnings_; // 模拟的内存数据库
 #endif

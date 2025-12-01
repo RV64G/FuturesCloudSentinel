@@ -11,6 +11,25 @@ Page {
     property var tips: ApplicationWindow.window ? ApplicationWindow.window.tips : null
     property bool isBusy: false
 
+    Component.onCompleted: {
+        var creds = backend.loadCredentials()
+        // creds is a QVariantMap: { "rememberUser": bool, "autoLogin": bool, "username": string, "password": string }
+        
+        if (creds.rememberUser) {
+            userIdField.text = creds.username
+            rememberUser.checked = true
+            
+            if (creds.autoLogin) {
+                passwordField.text = creds.password
+                autoLogin.checked = true
+                
+                // Auto login
+                loginPage.isBusy = true
+                backend.login(creds.username, creds.password, brokerIdField.text, loginPage.defaultFrontAddr)
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.centerIn: parent
         width: 300
@@ -45,6 +64,24 @@ Page {
             Layout.fillWidth: true
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            CheckBox {
+                id: rememberUser
+                text: "Remember Username"
+                onCheckedChanged: {
+                    if (!checked) {
+                        autoLogin.checked = false
+                    }
+                }
+            }
+            CheckBox {
+                id: autoLogin
+                text: "Auto Login"
+                enabled: rememberUser.checked
+            }
+        }
+
         // Front address removed: server connection address is no longer user-input.
 
         Button {
@@ -58,6 +95,7 @@ Page {
                     return
                 }
                 loginPage.isBusy = true
+                backend.saveCredentials(userIdField.text, passwordField.text, rememberUser.checked, autoLogin.checked)
                 backend.login(userIdField.text, passwordField.text, brokerIdField.text, loginPage.defaultFrontAddr)
             }
         }

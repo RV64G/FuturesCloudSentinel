@@ -310,7 +310,7 @@ void FuturesClient::simulate_response(const json& request) {
         if (user == "error_user") {
             success = false;
             message = "User not found (Simulated)";
-        } else if (pass == "wrong_pass") {
+        } else if (user == "wrong_pass") {
             success = false;
             message = "Invalid password (Simulated)";
         } else {

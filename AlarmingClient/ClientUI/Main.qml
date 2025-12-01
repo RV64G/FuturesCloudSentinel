@@ -17,6 +17,11 @@ ApplicationWindow {
 
     property alias tips: tips
 
+    function logout() {
+        stackView.pop(null) // Pop all
+        stackView.push("Views/LoginPage.qml")
+    }
+
     StackView {
         id: stackView
         anchors.fill: parent
@@ -34,6 +39,30 @@ ApplicationWindow {
         target: backend
         function onShowMessage(message) {
             if (tips) tips.showMessage(message, "info")
+            
+            // If it's an alert, show a modal dialog or stronger notification
+            // Simple heuristic: if message contains "Alert" or "Triggered"
+            if (message.indexOf("Alert") !== -1 || message.indexOf("Triggered") !== -1) {
+                alertDialog.text = message
+                alertDialog.open()
+            }
+        }
+    }
+
+    Dialog {
+        id: alertDialog
+        title: "⚠️ Warning Triggered"
+        anchors.centerIn: parent
+        modal: true
+        standardButtons: Dialog.Ok
+        property alias text: msgLabel.text
+        
+        Label {
+            id: msgLabel
+            text: "Warning!"
+            font.pixelSize: 16
+            color: "red"
+            font.bold: true
         }
     }
 }

@@ -3,6 +3,8 @@
 #include <QDebug>
 #include <QCryptographicHash>
 #include <QCoreApplication>
+#include <QTime>
+#include <QSettings>
 
 Backend::Backend(QObject *parent) : QObject(parent) {
     // Load contract codes from hardcoded data
@@ -62,6 +64,7 @@ void Backend::login(const QString &username, const QString &password, const QStr
     if (client_) {
         current_request_type_ = "login";
         currentUsername_ = username; // 暂存用户名
+        emit usernameChanged(); // Notify UI
         QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
         // TODO: Pass brokerId and frontAddr when base library supports it
         client_->login(username.toStdString(), hashedPassword.toStdString());
@@ -111,10 +114,32 @@ void Backend::addPriceWarning(const QString &symbolText, double maxPrice, double
     client_->add_price_warning(currentUsername_.toStdString(), symbol, maxPrice, minPrice);
 }
 
+void Backend::addTimeWarning(const QString &symbolText, const QString &timeStr) {
+    if (!client_) {
+        emit showMessage("Not connected to server");
+        return;
+    }
+    if (currentUsername_.isEmpty()) {
+        emit showMessage("Please login first");
+        return;
+    }
+
+    std::string symbol = extractContractCode(symbolText);
+    current_request_type_ = "add_warning";
+    client_->add_time_warning(currentUsername_.toStdString(), symbol, timeStr.toStdString());
+}
+
 void Backend::modifyPriceWarning(const QString &orderId, double maxPrice, double minPrice) {
     if (client_) {
         current_request_type_ = "modify_warning";
         client_->modify_price_warning(orderId.toStdString(), maxPrice, minPrice);
+    }
+}
+
+void Backend::modifyTimeWarning(const QString &orderId, const QString &timeStr) {
+    if (client_) {
+        current_request_type_ = "modify_warning";
+        client_->modify_time_warning(orderId.toStdString(), timeStr.toStdString());
     }
 }
 
@@ -192,10 +217,33 @@ void Backend::onMessageReceived(const nlohmann::json& j) {
                         QVariantMap map;
                         map.insert("order_id", QString::fromStdString(item.value("order_id", "")));
                         map.insert("symbol", QString::fromStdString(item.value("symbol", "")));
-                        map.insert("type", QString::fromStdString(item.value("type", "")));
+                        
+                        // Fix: Check both "type" and "warning_type"
+                        std::string wType = item.value("type", "");
+                        if (wType.empty()) wType = item.value("warning_type", "");
+                        map.insert("type", QString::fromStdString(wType));
+
+                        // Add Contract Name
+                        std::string symbol = item.value("symbol", "");
+                        QString qSymbol = QString::fromStdString(symbol);
+                        QString contractName = qSymbol; // Default to code
+                        
+                        // Reverse lookup or iterate to find name
+                        // Since contractMap_ is "Name (Code)" -> "Code", we need to find the key for this value
+                        // Or better, just iterate RAW_CONTRACT_DATA again or store a reverse map.
+                        // For simplicity, let's iterate RAW_CONTRACT_DATA as it's small.
+                        for (const auto& entry : RAW_CONTRACT_DATA) {
+                            if (entry.code == symbol) {
+                                contractName = QString::fromStdString(entry.name);
+                                break;
+                            }
+                        }
+                        map.insert("contract_name", contractName);
+
                         // map.insert("status", QString::fromStdString(item.value("status", "active"))); 
                         if (item.contains("max_price")) map.insert("max_price", item["max_price"].get<double>());
                         if (item.contains("min_price")) map.insert("min_price", item["min_price"].get<double>());
+                        if (item.contains("trigger_time")) map.insert("trigger_time", QString::fromStdString(item["trigger_time"].get<std::string>()));
                         warningList_.append(QVariant(map));
                     }
                     emit warningListChanged();
@@ -238,12 +286,31 @@ void Backend::onMessageReceived(const nlohmann::json& j) {
     } else if (type == "alert_triggered") {
         // 处理服务器推送的预警消息
         std::string msg = j.value("message", "Alert Triggered!");
+        QString qMsg = QString::fromStdString(msg);
+        
+        // 尝试解析更多信息用于日志
+        std::string symbol = j.value("symbol", "Unknown");
+        double price = j.value("current_price", 0.0);
+        
+        QString logDetail = QString("[%1] %2 (Price: %3)").arg("ALERT", qMsg).arg(price);
+
         // 通过信号通知 UI 层显示弹窗
-        emit showMessage(QString::fromStdString(msg));
+        emit showMessage(qMsg);
+        // 记录日志
+        emit logReceived(QTime::currentTime().toString("HH:mm:ss"), "ALERT", logDetail);
     } else if (type == "login_response") {
         // 兼容旧代码逻辑 (如果服务器改回去了)
         bool success = j.value("success", false);
         if (success) {
+            currentUsername_ = currentUsername_; // Already set in login() call? No, we need to track it.
+            // Actually, login() sets currentUsername_ before sending request? No.
+            // We should update currentUsername_ here if successful, but we don't have the username in response usually.
+            // So we rely on the username passed to login().
+            // Let's assume login() stores it temporarily or we just trust the UI state.
+            // Better: login() stores it in currentUsername_ tentatively, or we pass it in response.
+            // For now, let's assume the UI handles the username display via the input field, 
+            // but we need to update the property for ShellPage.
+            // Let's update it in the login() method.
             emit loginSuccess();
         } else {
             std::string msg = j.value("message", "Login failed");
@@ -258,4 +325,69 @@ void Backend::onMessageReceived(const nlohmann::json& j) {
             emit registerFailed(QString::fromStdString(msg));
         }
     }
+}
+
+void Backend::saveCredentials(const QString &username, const QString &password, bool rememberUser, bool autoLogin) {
+    QSettings settings("FuturesCloudSentinel", "AlarmingClient");
+    settings.setValue("rememberUser", rememberUser);
+    settings.setValue("autoLogin", autoLogin);
+    
+    if (rememberUser) {
+        settings.setValue("username", username);
+        if (autoLogin) {
+            // Simple obfuscation (NOT SECURE, just to avoid plain text)
+            QByteArray pwdBytes = password.toUtf8().toBase64();
+            settings.setValue("password", pwdBytes);
+        } else {
+            settings.remove("password");
+        }
+    } else {
+        settings.remove("username");
+        settings.remove("password");
+    }
+}
+
+QVariantMap Backend::loadCredentials() {
+    QSettings settings("FuturesCloudSentinel", "AlarmingClient");
+    QVariantMap map;
+    bool rememberUser = settings.value("rememberUser", false).toBool();
+    bool autoLogin = settings.value("autoLogin", false).toBool();
+    
+    map.insert("rememberUser", rememberUser);
+    map.insert("autoLogin", autoLogin);
+    
+    if (rememberUser) {
+        map.insert("username", settings.value("username").toString());
+        if (autoLogin) {
+            QByteArray pwdBytes = settings.value("password").toByteArray();
+            QString password = QString::fromUtf8(QByteArray::fromBase64(pwdBytes));
+            map.insert("password", password);
+        }
+    }
+    return map;
+}
+
+void Backend::clearCredentials() {
+    QSettings settings("FuturesCloudSentinel", "AlarmingClient");
+    settings.remove("username");
+    settings.remove("password");
+    settings.setValue("rememberUser", false);
+    settings.setValue("autoLogin", false);
+}
+
+void Backend::testTriggerAlert(const QString &symbol) {
+#ifdef CLIENT_DEBUG_SIMULATION
+    if (client_) {
+        // 模拟触发一个预警
+        // 使用传入的合约代码，或者默认 IF2310
+        std::string code = symbol.isEmpty() ? "IF2310" : symbol.toStdString();
+        
+        // 构造更详细的预警消息
+        QString detailMsg = QString("Alert Triggered: %1 Price >= 9999.0").arg(QString::fromStdString(code));
+        
+        // 模拟价格，这里随便给一个值，或者根据合约给一个合理值
+        // 为了简单，我们假设价格是 9999.0，这样容易触发 ">= X" 的报警
+        client_->simulate_alert_trigger(code, 9999.0, detailMsg.toStdString());
+    }
+#endif
 }

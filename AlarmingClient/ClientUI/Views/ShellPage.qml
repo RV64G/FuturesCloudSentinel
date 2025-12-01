@@ -49,7 +49,7 @@ Page {
                         anchors.centerIn: parent
                         spacing: 10
                         Label {
-                            text: "User: 123456"
+                            text: "User: " + (backend.username ? backend.username : "Guest")
                             color: "white"
                             font.bold: true
                         }
