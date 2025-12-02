@@ -36,10 +36,6 @@ jobs:
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v1.1
 
-    - name: Restore NuGet packages
-      working-directory: AlarmingClient
-      run: nuget restore AlarmingClient.slnx
-
     - name: Build with MSBuild
       working-directory: AlarmingClient
       # Override Qt settings to use the CI-installed Qt instead of the local .vcxproj setting
