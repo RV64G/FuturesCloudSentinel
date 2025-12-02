@@ -43,7 +43,7 @@ jobs:
       run: |
         $qtDir = "${{ github.workspace }}/qt/Qt/6.8.0/msvc2022_64"
         echo "Using Qt at: $qtDir"
-        msbuild AlarmingClient.slnx /p:Configuration=Release /p:Platform=x64 /p:QtInstallDir="$qtDir" /p:QtModules="core;gui;widgets;network;qml;quick;quickcontrols2"
+        msbuild AlarmingClient.slnx /p:Configuration=Release /p:Platform=x64 /p:QtInstallDir="$qtDir"
 
     - name: Deploy Qt Dependencies
       working-directory: AlarmingClient/x64/Release
