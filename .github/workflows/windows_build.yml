@@ -19,7 +19,7 @@ jobs:
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-        vcpkgGitCommitId: 'e5d8536c765135d879728266320015c933d79652' # Pin to a known valid vcpkg commit (2024-05-24)
+        # vcpkgGitCommitId is removed; we use builtin-baseline in vcpkg.json
         vcpkgJsonGlob: '**/vcpkg.json'
 
     - name: Install Qt

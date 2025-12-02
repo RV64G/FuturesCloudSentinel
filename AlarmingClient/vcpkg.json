@@ -1,6 +1,7 @@
 {
   "name": "futures-alarming-client",
   "version-string": "0.1.0",
+  "builtin-baseline": "be563dfee81e88f9f6cf68839dff5b671b5cfb37",
   "dependencies": [
     "boost-system",
     "boost-asio",
