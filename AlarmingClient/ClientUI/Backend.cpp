@@ -24,6 +24,12 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     filteredContractCodes_ = allContractCodes_;
     emit contractCodesChanged();
 
+    // Initialize QuoteClient
+    quoteClient_ = new QuoteClient(this);
+    connect(quoteClient_, &QuoteClient::priceUpdated, this, &Backend::onPriceUpdated);
+    // Connect to CTP (using demo address for now)
+    quoteClient_->connectToCtp("tcp://182.254.243.31:40011");
+
     work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_.get_executor());
     
     tcp::resolver resolver(io_context_);
@@ -96,6 +102,11 @@ void Backend::filterContractCodes(const QString &text) {
         }
     }
     emit contractCodesChanged();
+}
+
+void Backend::onPriceUpdated(const QString& symbol, double price) {
+    prices_[symbol] = price;
+    emit pricesChanged();
 }
 
 void Backend::addPriceWarning(const QString &symbolText, double maxPrice, double minPrice) {
@@ -179,11 +190,25 @@ void Backend::queryWarnings(const QString &statusFilter) {
     }
 }
 
+void Backend::subscribe(const QString &symbol) {
+    if (quoteClient_ && !symbol.isEmpty()) {
+        quoteClient_->subscribe(QStringList() << symbol);
+    }
+}
+
 void Backend::setEmail(const QString &email) {
     if (client_) {
         current_request_type_ = "set_email";
         client_->set_email(email.toStdString());
     }
+    // Save locally
+    QSettings settings("FuturesCloudSentinel", "AlarmingClient");
+    settings.setValue("saved_email", email);
+}
+
+QString Backend::getSavedEmail() {
+    QSettings settings("FuturesCloudSentinel", "AlarmingClient");
+    return settings.value("saved_email", "").toString();
 }
 
 void Backend::onMessageReceived(const nlohmann::json& j) {
@@ -213,6 +238,7 @@ void Backend::onMessageReceived(const nlohmann::json& j) {
             if (success) {
                 if (j.contains("data") && j["data"].is_array()) {
                     warningList_.clear();
+                    QStringList symbolsToSubscribe;
                     for (const auto& item : j["data"]) {
                         QVariantMap map;
                         map.insert("order_id", QString::fromStdString(item.value("order_id", "")));
@@ -226,6 +252,9 @@ void Backend::onMessageReceived(const nlohmann::json& j) {
                         // Add Contract Name
                         std::string symbol = item.value("symbol", "");
                         QString qSymbol = QString::fromStdString(symbol);
+                        if (!symbolsToSubscribe.contains(qSymbol)) {
+                            symbolsToSubscribe.append(qSymbol);
+                        }
                         QString contractName = qSymbol; // Default to code
                         
                         // Reverse lookup or iterate to find name
@@ -247,6 +276,9 @@ void Backend::onMessageReceived(const nlohmann::json& j) {
                         warningList_.append(QVariant(map));
                     }
                     emit warningListChanged();
+                    if (quoteClient_) {
+                        quoteClient_->subscribe(symbolsToSubscribe);
+                    }
                 }
             } else {
                 emit showMessage("Query failed: " + QString::fromStdString(message));

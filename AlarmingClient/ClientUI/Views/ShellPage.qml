@@ -58,20 +58,41 @@ Page {
                 Layout.preferredHeight: 150
                 Rectangle {
                     anchors.fill: parent
-                    color: theme.primary
+                    color: theme.surface // Clean surface color
+                    
+                    // Decorative strip on the left
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: 4
+                        color: theme.primary
+                    }
+
+                    // Subtle bottom border
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        width: parent.width
+                        height: 1
+                        color: theme.colorOutline
+                        opacity: 0.1
+                    }
+                    
                     Column {
                         anchors.centerIn: parent
                         spacing: 10
                         Label {
                             text: "User: " + (backend.username ? backend.username : "Guest")
-                            color: theme.colorOnPrimary
+                            color: theme.colorOnSurface 
                             font.bold: true
+                            font.pixelSize: 18
                         }
                         Label {
                             text: "Connected"
-                            color: theme.colorOnPrimary
-                            opacity: 0.8
+                            color: theme.primary // Use primary color for status to echo the strip
+                            opacity: 0.9
                             font.pixelSize: 12
+                            font.bold: true
                         }
                     }
                 }

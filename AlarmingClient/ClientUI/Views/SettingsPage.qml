@@ -25,10 +25,10 @@ Page {
         }
 
         RowLayout {
-            Label { text: "Accent Color (Monet)" }
+            Label { text: "Accent Color" }
             Repeater {
                 // Use a fixed list for now to avoid SystemPalette issues in Repeater model
-                model: ["#0078d4", "#d83b01", "#107c10", "#6200EE", "#009688"]
+                model: ["#0078d4", "#d83b01", "#107c10", "#6200EE", "#66ccff"]
                 delegate: Rectangle {
                     width: 24; height: 24; radius: 12
                     color: modelData
@@ -55,6 +55,7 @@ Page {
                 id: emailField
                 placeholderText: "alert@example.com"
                 Layout.fillWidth: true 
+                Component.onCompleted: text = backend.getSavedEmail()
             }
             Button {
                 text: "Set"
@@ -76,7 +77,17 @@ Page {
         Button {
             text: "Logout"
             Layout.alignment: Qt.AlignRight
-            palette.buttonText: "red"
+            
+            contentItem: Text {
+                text: parent.text
+                font: parent.font
+                opacity: enabled ? 1.0 : 0.3
+                color: "#F14C4C" // VS Code Red
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+            }
+
             onClicked: {
                 backend.clearCredentials()
                 if (ApplicationWindow.window && ApplicationWindow.window.logout) {

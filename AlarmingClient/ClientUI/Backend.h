@@ -7,6 +7,7 @@
 #include <boost/asio.hpp>
 #include <nlohmann/json.hpp>
 #include "../base/FuturesClient.h"
+#include "QuoteClient.h"
 
 class Backend : public QObject {
     Q_OBJECT
@@ -19,6 +20,9 @@ public:
     
     Q_PROPERTY(QStringList contractCodes READ contractCodes NOTIFY contractCodesChanged)
     QStringList contractCodes() const { return filteredContractCodes_; }
+
+    Q_PROPERTY(QVariantMap prices READ prices NOTIFY pricesChanged)
+    QVariantMap prices() const { return prices_; }
 
     Q_INVOKABLE void filterContractCodes(const QString &text);
 
@@ -33,7 +37,9 @@ public:
     Q_INVOKABLE void testTriggerAlert(const QString &symbol = "IF2310");
 
     Q_INVOKABLE void queryWarnings(const QString &statusFilter = "all");
+    Q_INVOKABLE void subscribe(const QString &symbol);
     Q_INVOKABLE void setEmail(const QString &email);
+    Q_INVOKABLE QString getSavedEmail();
 
     // Credentials Management
     Q_INVOKABLE void saveCredentials(const QString &username, const QString &password, bool rememberUser, bool autoLogin);
@@ -54,19 +60,23 @@ signals:
     void showMessage(const QString &message);
     void contractCodesChanged();
     void warningListChanged();
+    void pricesChanged();
     void logReceived(const QString &time, const QString &level, const QString &message);
     void usernameChanged();
 
 private:
     void onMessageReceived(const nlohmann::json& j);
+    void onPriceUpdated(const QString& symbol, double price);
 
     QStringList allContractCodes_;
     QStringList filteredContractCodes_;
     QVariantList warningList_;
+    QVariantMap prices_;
 
     boost::asio::io_context io_context_;
     std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> work_guard_;
     std::unique_ptr<FuturesClient> client_;
+    QuoteClient* quoteClient_;
     std::thread io_thread_;
 
     // 记录当前正在进行的请求类型 (假设同一时间只有一个请求)

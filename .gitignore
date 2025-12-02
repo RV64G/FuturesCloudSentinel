@@ -421,3 +421,7 @@ FodyWeavers.xsd
 # vcpkg
 vcpkg/
 vcpkg_installed/
+
+# CTP DLLs exception
+!AlarmingClient/ClientUI/CTP/bin/*.dll
+!AlarmingClient/ClientUI/CTP/lib/*.lib

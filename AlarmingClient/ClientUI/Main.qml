@@ -88,7 +88,7 @@ ApplicationWindow {
             id: msgLabel
             text: "Warning!"
             font.pixelSize: 16
-            color: "red"
+            color: "#F14C4C" // VS Code Red
             font.bold: true
         }
     }
