@@ -3,10 +3,10 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Page {
-    title: "System Logs"
-    property var theme: ApplicationWindow.window.theme
+    title: "系统日志"
+    property var theme: ApplicationWindow.window ? ApplicationWindow.window.theme : null
 
-    background: Rectangle { color: theme.background }
+    background: Rectangle { color: theme ? theme.background : "#ffffff" }
 
     ListView {
         id: logListView

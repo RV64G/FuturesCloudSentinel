@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QCoreApplication>
 #include <QTime>
+#include <QDateTime>
 
 Backend::Backend(QObject *parent) : QObject(parent) {
     // Initialize Managers
@@ -46,11 +47,29 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     filteredContractCodes_ = allContractCodes_;
     emit contractCodesChanged();
 
+    // Load debug settings if in debug UI mode
+    loadDebugSettings();
+
     // Initialize QuoteClient
     quoteClient_ = new QuoteClient(this);
     connect(quoteClient_, &QuoteClient::priceUpdated, this, &Backend::onPriceUpdated);
-    // Connect to CTP (using demo address for now)
+    connect(quoteClient_, &QuoteClient::connectionStatusChanged, [this](bool connected) {
+        lastCtpHeartbeat_ = QDateTime::currentMSecsSinceEpoch();
+        if (ctpConnected_ != connected) {
+            ctpConnected_ = connected;
+            emit ctpConnectedChanged();
+        }
+    });
+    
+    // Connect to CTP (24h demo server for quotes)
+    // 注意: CTP 连接独立于 SIMULATE_SERVER，因为行情数据对测试有帮助
     quoteClient_->connectToCtp("tcp://182.254.243.31:40011");
+    qDebug() << "[Backend] Connecting to CTP demo server for market data";
+
+    // CTP 连接看门狗定时器 (每500ms检查一次)
+    ctpWatchdog_ = new QTimer(this);
+    connect(ctpWatchdog_, &QTimer::timeout, this, &Backend::updateCtpConnectionStatus);
+    ctpWatchdog_->start(500);
 
     work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_.get_executor());
     
@@ -65,7 +84,7 @@ void Backend::connectToServer() {
 
     tcp::resolver resolver(io_context_);
     try {
-        auto endpoints = resolver.resolve(serverAddress_.toStdString(), "8888");
+        auto endpoints = resolver.resolve(serverAddress_.toStdString(), std::to_string(serverPort_));
         client_ = std::make_unique<FuturesClient>(io_context_, endpoints);
         
         client_->set_message_callback([this](const nlohmann::json& j) {
@@ -90,7 +109,48 @@ void Backend::setServerAddress(const QString &addr) {
     if (serverAddress_ != addr) {
         serverAddress_ = addr;
         emit serverAddressChanged();
-        connectToServer();
+        saveDebugSettings();
+        // 不立即连接，等用户点击登录时再连接
+    }
+}
+
+void Backend::setServerPort(int port) {
+    if (serverPort_ != port) {
+        serverPort_ = port;
+        emit serverPortChanged();
+        saveDebugSettings();
+        // 不立即连接，等用户点击登录时再连接
+    }
+}
+
+void Backend::loadDebugSettings() {
+#ifdef DEBUG_UI
+    QSettings settings("FuturesCloudSentinel", "AlarmingClient");
+    serverAddress_ = settings.value("debug_server_address", "127.0.0.1").toString();
+    serverPort_ = settings.value("debug_server_port", 8888).toInt();
+#else
+    // 非调试模式：使用生产服务器地址
+    serverAddress_ = PRODUCTION_SERVER_ADDRESS;
+    serverPort_ = PRODUCTION_SERVER_PORT;
+#endif
+}
+
+void Backend::saveDebugSettings() {
+#ifdef DEBUG_UI
+    QSettings settings("FuturesCloudSentinel", "AlarmingClient");
+    settings.setValue("debug_server_address", serverAddress_);
+    settings.setValue("debug_server_port", serverPort_);
+#endif
+}
+
+void Backend::updateCtpConnectionStatus() {
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    // 如果超过 1 秒没有收到心跳，认为断开
+    bool shouldBeConnected = (now - lastCtpHeartbeat_) < 1000;
+    
+    if (ctpConnected_ != shouldBeConnected) {
+        ctpConnected_ = shouldBeConnected;
+        emit ctpConnectedChanged();
     }
 }
 
@@ -237,48 +297,42 @@ QString Backend::getContractName(const QString &code) {
 }
 
 QString Backend::constructAlertMessage(const nlohmann::json& j) {
+    // 按照 protocol.md: alert_triggered 包含 order_id, symbol, trigger_value, trigger_time
     std::string symbol = j.value("symbol", "");
-    double currentPrice = j.value("current_price", 0.0);
-    std::string warningType = j.value("warning_type", "price"); // price or time
+    double triggerValue = j.value("trigger_value", 0.0);
+    std::string triggerTime = j.value("trigger_time", "");
+    std::string orderId = j.value("order_id", "");
     
     QString contractName = getContractName(QString::fromStdString(symbol));
     
-    QString msg;
-    if (warningType == "price") {
-        double threshold = j.value("threshold", 0.0); 
-        std::string condition = j.value("condition", ""); // e.g. "max" or "min" or ">="
-        
-        msg = QString("价格预警触发！\n合约: %1 (%2)\n当前价格: %3\n触发条件: %4 %5")
-                .arg(contractName)
-                .arg(QString::fromStdString(symbol))
-                .arg(currentPrice)
-                .arg(QString::fromStdString(condition))
-                .arg(threshold);
-    } else if (warningType == "time") {
-        std::string timeStr = j.value("target_time", "");
-        msg = QString("时间预警触发！\n合约: %1 (%2)\n设定时间: %3")
-                .arg(contractName)
-                .arg(QString::fromStdString(symbol))
-                .arg(QString::fromStdString(timeStr));
-    } else {
-        // Fallback
-            msg = QString("预警触发！\n合约: %1 (%2)\n当前价格: %3")
-                .arg(contractName)
-                .arg(QString::fromStdString(symbol))
-                .arg(currentPrice);
-    }
+    QString msg = QString("预警触发！\n合约: %1 (%2)\n触发值: %3\n触发时间: %4")
+            .arg(contractName)
+            .arg(QString::fromStdString(symbol))
+            .arg(triggerValue)
+            .arg(QString::fromStdString(triggerTime));
+    
     return msg;
 }
 
 void Backend::onMessageReceived(const nlohmann::json& j) {
     std::string type = j.value("type", "");
+    qDebug() << "[Backend] Received message type:" << QString::fromStdString(type);
     
     if (type == "response") {
-        bool success = j.value("success", false);
-        std::string message = j.value("message", "");
+        // 按照 protocol.md 解析: status (int), error_code (int)
+        int status = j.value("status", 0);
+        int error_code = j.value("error_code", 0);
+        bool success = (status == 0 && error_code == 0);
         
-        std::string requestType = current_request_type_;
+        // 从 request_type 获取原始请求类型，或使用保存的 current_request_type_
+        std::string requestType = j.value("request_type", current_request_type_);
         current_request_type_ = ""; 
+        
+        // 根据 error_code 生成友好消息
+        std::string message = getErrorMessage(error_code);
+
+        qDebug() << "[Backend] Response for:" << QString::fromStdString(requestType) 
+                 << "status:" << status << "error_code:" << error_code;
 
         if (requestType == "login" || requestType == "register") {
             authManager_->handleResponse(requestType, success, message, j);
@@ -292,39 +346,57 @@ void Backend::onMessageReceived(const nlohmann::json& j) {
                 emit showMessage("Failed to set email: " + QString::fromStdString(message));
             }
         } else {
-            if (!success || !message.empty()) {
-                 emit showMessage(QString::fromStdString(message));
+            if (!success) {
+                emit showMessage(QString::fromStdString(message));
             }
         }
     } else if (type == "alert_triggered") {
-        // Use new message construction logic
+        // 按照 protocol.md: alert_id, order_id, symbol, trigger_value, trigger_time
         QString qMsg = constructAlertMessage(j);
         
         std::string symbol = j.value("symbol", "Unknown");
-        double price = j.value("current_price", 0.0);
+        double triggerValue = j.value("trigger_value", 0.0);
         
-        QString logDetail = QString("[%1] %2 (Price: %3)").arg("ALERT", qMsg).arg(price);
+        QString logDetail = QString("[ALERT] %1 (Value: %2)").arg(qMsg).arg(triggerValue);
 
         emit showMessage(qMsg);
         emit logReceived(QTime::currentTime().toString("HH:mm:ss"), "ALERT", logDetail);
-    } else if (type == "login_response") {
-        // Legacy support
-        bool success = j.value("success", false);
-        std::string message = j.value("message", "");
-        authManager_->handleResponse("login", success, message, j);
-    } else if (type == "register_response") {
-        bool success = j.value("success", false);
-        std::string message = j.value("message", "");
-        authManager_->handleResponse("register", success, message, j);
+    }
+}
+
+std::string Backend::getErrorMessage(int error_code) {
+    // 根据 protocol.md 的错误码定义返回友好消息
+    switch (error_code) {
+        case 0:    return "操作成功";
+        case 1001: return "系统繁忙，请稍后重试";
+        case 1002: return "数据格式错误";
+        case 1003: return "缺少必填参数";
+        case 1004: return "参数值不合法";
+        case 1005: return "服务器开小差了";
+        case 1006: return "数据库操作失败，请稍后重试";
+        case 1007: return "处理超时，请稍后重试";
+        case 2001: return "用户不存在，请检查用户名";
+        case 2002: return "密码错误，请重新输入";
+        case 2003: return "用户名已存在，请更换用户名";
+        case 2004: return "未登录或会话无效";
+        case 2005: return "会话已过期，请重新登录";
+        case 2006: return "账号被锁定，请联系管理员";
+        case 2007: return "无权访问";
+        case 3001: return "预警单不存在";
+        case 3002: return "合约代码不存在或不支持";
+        case 3006: return "休市期间无法操作，请在交易时间再试";
+        default:   return "操作失败 (错误码: " + std::to_string(error_code) + ")";
     }
 }
 
 void Backend::testTriggerAlert(const QString &symbol) {
-#ifdef GLOBAL_DEBUG_MODE
+#ifdef SIMULATE_SERVER
     if (client_) {
         std::string code = symbol.isEmpty() ? "IF2310" : symbol.toStdString();
         QString detailMsg = QString("Alert Triggered: %1 Price >= 9999.0").arg(QString::fromStdString(code));
         client_->simulate_alert_trigger(code, 9999.0, detailMsg.toStdString());
     }
+#else
+    Q_UNUSED(symbol)
 #endif
 }

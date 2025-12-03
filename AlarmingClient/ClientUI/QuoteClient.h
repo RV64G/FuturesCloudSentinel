@@ -3,7 +3,7 @@
 #include <QMap>
 #include <QMutex>
 #include <QStringList>
-#include "ThostFtdcMdApi.h"
+#include "CTP/include/ThostFtdcMdApi.h"
 
 class QuoteClient : public QObject, public CThostFtdcMdSpi
 {
@@ -14,9 +14,11 @@ public:
 
     void connectToCtp(const QString& frontAddr);
     void subscribe(const QStringList& instruments);
+    bool isConnected() const { return m_isConnected; }
 
 signals:
     void priceUpdated(const QString& symbol, double price);
+    void connectionStatusChanged(bool connected);
 
 private:
     // CThostFtdcMdSpi interface
@@ -30,4 +32,5 @@ private:
     int m_requestId;
     bool m_isConnected;
     QStringList m_pendingSubscriptions;
+    std::string m_frontAddr;  // 保存前置地址，防止被释放
 };

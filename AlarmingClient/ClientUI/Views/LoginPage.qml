@@ -4,7 +4,7 @@ import QtQuick.Layouts
 
 Page {
     id: loginPage
-    title: "Login"
+    title: "登录"
     
     property var theme: ApplicationWindow.window ? ApplicationWindow.window.theme : null
     background: Rectangle { color: theme ? theme.background : "#ffffff" }
@@ -40,7 +40,7 @@ Page {
         enabled: !isBusy
 
         Label {
-            text: "Futures Alarming"
+            text: "期货云哨兵"
             font.pixelSize: 24
             font.bold: true
             Layout.alignment: Qt.AlignHCenter
@@ -49,38 +49,48 @@ Page {
 
         TextField {
             id: brokerIdField
-            placeholderText: "Broker ID"
+            placeholderText: "经纪商ID"
             Layout.fillWidth: true
             text: "9999"
         }
 
         TextField {
             id: userIdField
-            placeholderText: "User ID"
+            placeholderText: "用户名"
             Layout.fillWidth: true
         }
 
         TextField {
             id: passwordField
-            placeholderText: "Password"
+            placeholderText: "密码"
             echoMode: TextInput.Password
             Layout.fillWidth: true
         }
 
         TextField {
             id: serverIpField
-            placeholderText: "Server IP (Debug Only)"
+            placeholderText: "服务器IP (调试)"
             Layout.fillWidth: true
-            visible: backend.isDebug
-            text: backend.serverAddress
-            onEditingFinished: backend.serverAddress = text
+            visible: backend ? backend.isDebugUI : false
+            text: backend ? backend.serverAddress : ""
+            onEditingFinished: if (backend) backend.serverAddress = text
+        }
+
+        TextField {
+            id: serverPortField
+            placeholderText: "服务器端口 (调试)"
+            Layout.fillWidth: true
+            visible: backend ? backend.isDebugUI : false
+            text: backend ? backend.serverPort.toString() : "8888"
+            validator: IntValidator { bottom: 1; top: 65535 }
+            onEditingFinished: if (backend) backend.serverPort = parseInt(text) || 8888
         }
 
         RowLayout {
             Layout.fillWidth: true
             CheckBox {
                 id: rememberUser
-                text: "Remember Username"
+                text: "记住用户名"
                 onCheckedChanged: {
                     if (!checked) {
                         autoLogin.checked = false
@@ -89,7 +99,7 @@ Page {
             }
             CheckBox {
                 id: autoLogin
-                text: "Auto Login"
+                text: "自动登录"
                 enabled: rememberUser.checked
             }
         }
@@ -97,13 +107,13 @@ Page {
         // Front address removed: server connection address is no longer user-input.
 
         Button {
-            text: "Login"
+            text: "登录"
             highlighted: true
             Layout.fillWidth: true
             Layout.topMargin: 10
             onClicked: {
                 if (userIdField.text === "" || passwordField.text === "") {
-                    if (tips) tips.showMessage("Please enter username and password", "error")
+                    if (tips) tips.showMessage("请输入用户名和密码", "error")
                     return
                 }
                 loginPage.isBusy = true
@@ -113,7 +123,7 @@ Page {
         }
 
         Button {
-            text: "Register"
+            text: "注册"
             flat: true
             Layout.fillWidth: true
             onClicked: {
@@ -149,7 +159,7 @@ Page {
             spacing: 15
 
             Label {
-                text: "Create Account"
+                text: "创建账户"
                 font.pixelSize: 20
                 font.bold: true
                 Layout.alignment: Qt.AlignHCenter
@@ -157,36 +167,36 @@ Page {
 
             TextField {
                 id: regUsernameField
-                placeholderText: "Username"
+                placeholderText: "用户名"
                 Layout.fillWidth: true
             }
 
             TextField {
                 id: regPasswordField
-                placeholderText: "Password"
+                placeholderText: "密码"
                 echoMode: TextInput.Password
                 Layout.fillWidth: true
             }
             
             TextField {
                 id: regConfirmPasswordField
-                placeholderText: "Confirm Password"
+                placeholderText: "确认密码"
                 echoMode: TextInput.Password
                 Layout.fillWidth: true
             }
 
             Button {
-                text: "Register"
+                text: "注册"
                 highlighted: true
                 Layout.fillWidth: true
                 Layout.topMargin: 10
                 onClicked: {
                     if (regPasswordField.text !== regConfirmPasswordField.text) {
-                        if (tips) tips.showMessage("Passwords do not match", "error")
+                        if (tips) tips.showMessage("两次密码不一致", "error")
                         return
                     }
                     if (regUsernameField.text === "" || regPasswordField.text === "") {
-                        if (tips) tips.showMessage("Please fill all fields", "error")
+                        if (tips) tips.showMessage("请填写所有字段", "error")
                         return
                     }
                     
@@ -200,7 +210,7 @@ Page {
         target: backend
         function onLoginSuccess() {
             loginPage.isBusy = false
-            if (tips) tips.showMessage("Login successful!", "success")
+            if (tips) tips.showMessage("登录成功！", "success")
             loginPage.loginSuccess()
         }
         function onLoginFailed(message) {
@@ -208,7 +218,7 @@ Page {
             if (tips) tips.showMessage(message, "error")
         }
         function onRegisterSuccess() {
-            if (tips) tips.showMessage("Registration successful!", "success")
+            if (tips) tips.showMessage("注册成功！", "success")
             registerPopup.close()
         }
         function onRegisterFailed(message) {

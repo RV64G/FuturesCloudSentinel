@@ -9,7 +9,7 @@ ApplicationWindow {
     visible: true
     width: 800
     height: 600
-    title: "Futures Alarming Client"
+    title: "期货云哨兵"
     
     // Global Font Settings
     font.family: "Microsoft YaHei UI"
@@ -65,20 +65,20 @@ ApplicationWindow {
     Connections {
         target: backend
         function onShowMessage(message) {
-            if (tips) tips.showMessage(message, "info")
-            
-            // If it's an alert, show a modal dialog or stronger notification
-            // Simple heuristic: if message contains "Alert" or "Triggered"
-            if (message.indexOf("Alert") !== -1 || message.indexOf("Triggered") !== -1) {
+            // 如果是预警触发消息，弹出模态对话框
+            if (message.indexOf("预警触发") !== -1) {
                 alertDialog.text = message
                 alertDialog.open()
+            } else {
+                // 其他消息用 tips 提示
+                if (tips) tips.showMessage(message, "info")
             }
         }
     }
 
     Dialog {
         id: alertDialog
-        title: "⚠️ Warning Triggered"
+        title: "⚠️ 预警触发"
         anchors.centerIn: parent
         modal: true
         standardButtons: Dialog.Ok
@@ -86,9 +86,9 @@ ApplicationWindow {
         
         Label {
             id: msgLabel
-            text: "Warning!"
+            text: ""
             font.pixelSize: 16
-            color: "#F14C4C" // VS Code Red
+            color: "#F14C4C"
             font.bold: true
         }
     }

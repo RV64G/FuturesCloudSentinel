@@ -4,9 +4,9 @@ import QtQuick.Layouts
 
 Page {
     id: shellPage
-    property var theme: ApplicationWindow.window.theme
+    property var theme: ApplicationWindow.window ? ApplicationWindow.window.theme : null
     
-    background: Rectangle { color: theme.background }
+    background: Rectangle { color: theme ? theme.background : "#ffffff" }
 
     header: ToolBar {
         RowLayout {
@@ -16,7 +16,7 @@ Page {
                 onClicked: drawer.open()
             }
             Label {
-                text: viewStack.currentItem ? viewStack.currentItem.title : "Futures Alarming"
+                text: viewStack.currentItem ? viewStack.currentItem.title : "期货云哨兵"
                 elide: Label.ElideRight
                 horizontalAlignment: Qt.AlignHCenter
                 verticalAlignment: Qt.AlignVCenter
@@ -27,7 +27,7 @@ Page {
                 onClicked: menu.open()
                 Menu {
                     id: menu
-                    MenuItem { text: "About" }
+                    MenuItem { text: "关于" }
                 }
             }
         }
@@ -39,12 +39,12 @@ Page {
         height: shellPage.height
         
         background: Rectangle {
-            color: theme.surface
+            color: theme ? theme.surface : "#f5f5f5"
             Rectangle {
                 anchors.right: parent.right
                 width: 1
                 height: parent.height
-                color: theme.colorOutline
+                color: theme ? theme.colorOutline : "#cccccc"
                 opacity: 0.2
             }
         }
@@ -58,7 +58,7 @@ Page {
                 Layout.preferredHeight: 150
                 Rectangle {
                     anchors.fill: parent
-                    color: theme.surface // Clean surface color
+                    color: theme ? theme.surface : "#f5f5f5"
                     
                     // Decorative strip on the left
                     Rectangle {
@@ -66,7 +66,7 @@ Page {
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         width: 4
-                        color: theme.primary
+                        color: theme ? theme.primary : "#0078d4"
                     }
 
                     // Subtle bottom border
@@ -74,7 +74,7 @@ Page {
                         anchors.bottom: parent.bottom
                         width: parent.width
                         height: 1
-                        color: theme.colorOutline
+                        color: theme ? theme.colorOutline : "#cccccc"
                         opacity: 0.1
                     }
                     
@@ -82,14 +82,14 @@ Page {
                         anchors.centerIn: parent
                         spacing: 10
                         Label {
-                            text: "User: " + (backend.username ? backend.username : "Guest")
-                            color: theme.colorOnSurface 
+                            text: "用户: " + (backend && backend.username ? backend.username : "游客")
+                            color: theme ? theme.colorOnSurface : "#000000"
                             font.bold: true
                             font.pixelSize: 18
                         }
                         Label {
-                            text: "Connected"
-                            color: theme.primary // Use primary color for status to echo the strip
+                            text: (backend && backend.ctpConnected) ? "行情已连接" : "行情未连接"
+                            color: (backend && backend.ctpConnected) ? "#89D185" : "#F14C4C"
                             opacity: 0.9
                             font.pixelSize: 12
                             font.bold: true
@@ -104,9 +104,9 @@ Page {
                 Layout.fillHeight: true
                 clip: true
                 model: ListModel {
-                    ListElement { title: "Alarm Monitor"; source: "AlarmPage.qml" }
-                    ListElement { title: "Logs"; source: "LogPage.qml" }
-                    ListElement { title: "Settings"; source: "SettingsPage.qml" }
+                    ListElement { title: "预警监控"; source: "AlarmPage.qml" }
+                    ListElement { title: "日志"; source: "LogPage.qml" }
+                    ListElement { title: "设置"; source: "SettingsPage.qml" }
                 }
                 delegate: ItemDelegate {
                     text: model.title

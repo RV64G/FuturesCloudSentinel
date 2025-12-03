@@ -2,6 +2,8 @@
 #include <QObject>
 #include <QString>
 #include <QVariant>
+#include <QSettings>
+#include <QTimer>
 #include <thread>
 #include <memory>
 #include <boost/asio.hpp>
@@ -50,20 +52,38 @@ public:
 
     Q_PROPERTY(QVariantList warningList READ warningList NOTIFY warningListChanged)
     Q_PROPERTY(QString username READ username NOTIFY usernameChanged)
-    Q_PROPERTY(bool isDebug READ isDebug CONSTANT)
+    Q_PROPERTY(bool isDebugUI READ isDebugUI CONSTANT)
+    Q_PROPERTY(bool isSimulateServer READ isSimulateServer CONSTANT)
     Q_PROPERTY(QString serverAddress READ serverAddress WRITE setServerAddress NOTIFY serverAddressChanged)
+    Q_PROPERTY(int serverPort READ serverPort WRITE setServerPort NOTIFY serverPortChanged)
+    Q_PROPERTY(bool ctpConnected READ ctpConnected NOTIFY ctpConnectedChanged)
     
     QString username() const;
     QVariantList warningList() const;
-    bool isDebug() const {
-#ifdef GLOBAL_DEBUG_MODE
+    
+    bool isDebugUI() const {
+#ifdef DEBUG_UI
         return true;
 #else
         return false;
 #endif
     }
+    
+    bool isSimulateServer() const {
+#ifdef SIMULATE_SERVER
+        return true;
+#else
+        return false;
+#endif
+    }
+    
     QString serverAddress() const { return serverAddress_; }
     void setServerAddress(const QString &addr);
+    
+    int serverPort() const { return serverPort_; }
+    void setServerPort(int port);
+    
+    bool ctpConnected() const { return ctpConnected_; }
 
 signals:
     void loginSuccess();
@@ -77,6 +97,8 @@ signals:
     void logReceived(const QString &time, const QString &level, const QString &message);
     void usernameChanged();
     void serverAddressChanged();
+    void serverPortChanged();
+    void ctpConnectedChanged();
 
 private:
     void onMessageReceived(const nlohmann::json& j);
@@ -85,11 +107,22 @@ private:
     std::string extractContractCode(const QString &text);
     QString getContractName(const QString &code);
     QString constructAlertMessage(const nlohmann::json& j);
+    std::string getErrorMessage(int error_code);  // 根据 protocol.md 错误码返回友好消息
+    void loadDebugSettings();
+    void saveDebugSettings();
+    void updateCtpConnectionStatus();
 
     QStringList allContractCodes_;
     QStringList filteredContractCodes_;
     QVariantMap prices_;
-    QString serverAddress_ = "127.0.0.1"; // Default
+    
+    // 生产环境真实服务器地址 (非 debug 模式使用)
+    static constexpr const char* PRODUCTION_SERVER_ADDRESS = "your-production-server.com";
+    static constexpr int PRODUCTION_SERVER_PORT = 8888;
+    
+    QString serverAddress_ = PRODUCTION_SERVER_ADDRESS;
+    int serverPort_ = PRODUCTION_SERVER_PORT;
+    
     std::map<std::string, std::string> contractMap_; // "Name (Code)" -> "Code"
 
     boost::asio::io_context io_context_;
@@ -104,4 +137,9 @@ private:
 
     // 记录当前正在进行的请求类型 (用于分发响应)
     std::string current_request_type_;
+    
+    // CTP 连接状态与看门狗
+    bool ctpConnected_ = false;
+    QTimer* ctpWatchdog_;
+    qint64 lastCtpHeartbeat_ = 0;
 };

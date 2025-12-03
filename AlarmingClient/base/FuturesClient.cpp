@@ -2,6 +2,19 @@
 #include <cstring>
 #include <chrono>
 
+// 日志输出宏 - 在 Qt 环境下使用 qDebug，否则使用 std::cout
+#ifdef QT_CORE_LIB
+#include <QDebug>
+#define LOG_DEBUG(msg) qDebug() << msg
+#define LOG_WARN(msg) qWarning() << msg
+#define LOG_ERROR(msg) qCritical() << msg
+#else
+#include <iostream>
+#define LOG_DEBUG(msg) std::cout << "[DEBUG] " << msg << std::endl
+#define LOG_WARN(msg) std::cerr << "[WARN] " << msg << std::endl
+#define LOG_ERROR(msg) std::cerr << "[ERROR] " << msg << std::endl
+#endif
+
 // ==========================================
 // ChatMessage 类实现
 // ==========================================
@@ -52,12 +65,13 @@ FuturesClient::FuturesClient(boost::asio::io_context& io_context,
     : io_context_(io_context),
       socket_(io_context),
       request_id_counter_(0) {
-#ifndef GLOBAL_DEBUG_MODE
+#ifndef SIMULATE_SERVER
     // 正常模式：发起 TCP 连接
+    LOG_DEBUG("[FuturesClient] Connecting to server...");
     do_connect(endpoints);
 #else
-    // 调试模式：跳过连接，直接打印日志
-    std::cout << "[Client] Debug Mode (Simulation) Enabled. Network disabled." << std::endl;
+    // 模拟模式：跳过连接，直接打印日志
+    LOG_DEBUG("[FuturesClient] Simulation Mode Enabled. Network disabled.");
 #endif
 }
 
@@ -175,14 +189,15 @@ void FuturesClient::send_json(const json& j_in) {
     j["ver"] = "3.1";
     j["ts"] = current_timestamp();
 
-#ifdef GLOBAL_DEBUG_MODE
-    // 调试模式：拦截发送，直接调用模拟响应
-    std::cout << "[Debug] Sending JSON: " << j.dump() << std::endl;
+#ifdef SIMULATE_SERVER
+    // 模拟模式：拦截发送，直接调用模拟响应
+    LOG_DEBUG("[FuturesClient] Simulate sending: " << j.dump());
     simulate_response(j);
     return;
 #endif
 
     // 正常模式：序列化并发送
+    LOG_DEBUG("[FuturesClient] Sending: " << j.dump());
     std::string s = j.dump();
     ChatMessage msg;
     msg.body_length(s.size());
@@ -204,12 +219,12 @@ void FuturesClient::write(const ChatMessage& msg) {
 
 void FuturesClient::do_connect(const tcp::resolver::results_type& endpoints) {
     boost::asio::async_connect(socket_, endpoints,
-        [this](boost::system::error_code ec, tcp::endpoint) {
+        [this](boost::system::error_code ec, tcp::endpoint ep) {
             if (!ec) {
-                std::cout << "[Client] Connected to server." << std::endl;
+                LOG_DEBUG("[FuturesClient] Connected to server: " << ep.address().to_string() << ":" << ep.port());
                 do_read_header();
             } else {
-                std::cerr << "[Client] Connect failed: " << ec.message() << std::endl;
+                LOG_ERROR("[FuturesClient] Connect FAILED: " << ec.message());
             }
         });
 }
@@ -221,6 +236,7 @@ void FuturesClient::do_read_header() {
             if (!ec && read_msg_.decode_header()) {
                 do_read_body();
             } else {
+                LOG_WARN("[FuturesClient] Read header failed, closing socket");
                 socket_.close();
             }
         });
@@ -233,16 +249,18 @@ void FuturesClient::do_read_body() {
             if (!ec) {
                 // 收到完整消息，进行 JSON 解析
                 std::string received_data(read_msg_.body(), read_msg_.body_length());
+                LOG_DEBUG("[FuturesClient] Received: " << received_data);
                 try {
                     json j = json::parse(received_data);
                     handle_message(j);
                 } catch (json::parse_error& e) {
-                    std::cerr << "[Client] JSON parse error: " << e.what() << std::endl;
+                    LOG_ERROR("[FuturesClient] JSON parse error: " << e.what());
                 }
 
                 // 继续读取下一条消息的 Header
                 do_read_header();
             } else {
+                LOG_WARN("[FuturesClient] Read body failed, closing socket");
                 socket_.close();
             }
         });
@@ -252,6 +270,7 @@ void FuturesClient::handle_message(const json& j) {
     // 1. 协议层逻辑：自动回复 ACK
     // 如果收到预警触发消息，必须回复 ACK 告知服务器已收到
     if (j.value("type", "") == "alert_triggered" && j.contains("alert_id")) {
+        LOG_DEBUG("[FuturesClient] Alert triggered, sending ACK");
         json ack;
         ack["type"] = "alert_ack";
         ack["alert_id"] = j["alert_id"];
@@ -264,7 +283,7 @@ void FuturesClient::handle_message(const json& j) {
         message_callback_(j);
     } else {
         // 如果没有设置回调，默认打印到控制台方便调试
-        std::cout << "[Client] Unhandled Message: " << j.dump(4) << std::endl;
+        LOG_DEBUG("[FuturesClient] Unhandled Message: " << j.dump(2));
     }
 }
 
@@ -284,15 +303,17 @@ void FuturesClient::do_write() {
         });
 }
 
-#ifdef GLOBAL_DEBUG_MODE
+#ifdef SIMULATE_SERVER
 void FuturesClient::simulate_alert_trigger(const std::string& symbol, double price, const std::string& message) {
     json j;
     j["type"] = "alert_triggered";
     j["alert_id"] = "alert_" + std::to_string(std::rand());
+    j["order_id"] = "mock_ord_1";
     j["symbol"] = symbol;
-    j["trigger_price"] = price;
-    j["message"] = message;
-    j["timestamp"] = "2023-10-27 10:00:00";
+    j["trigger_value"] = price;
+    j["trigger_time"] = "2023-10-27 10:00:00";
+
+    LOG_DEBUG("[FuturesClient] Simulating alert trigger for " << symbol);
 
     // 模拟服务器推送
     boost::asio::post(io_context_, [this, j]() {
@@ -301,8 +322,8 @@ void FuturesClient::simulate_alert_trigger(const std::string& symbol, double pri
 }
 
 void FuturesClient::simulate_response(const json& request) {
-    // 模拟服务器处理延迟
-    // 在实际场景中，这里可以根据 request["type"] 构造不同的回复
+    // 按照 protocol.md 构造响应
+    // 响应格式: type, request_id, request_type, status, error_code, data
     
     json response;
     response["type"] = "response";
@@ -311,52 +332,53 @@ void FuturesClient::simulate_response(const json& request) {
     }
     
     std::string req_type = request.value("type", "unknown");
-    bool success = true;
-    std::string message = "Operation successful";
+    response["request_type"] = req_type;
+    
+    int status = 0;      // 0 = 成功
+    int error_code = 0;  // 0 = SUCCESS
 
     // --- 模拟逻辑 ---
 
     if (req_type == "login") {
         std::string user = request.value("username", "");
-        std::string pass = request.value("password", "");
         if (user == "error_user") {
-            success = false;
-            message = "User not found (Simulated)";
+            status = 1;
+            error_code = 2001;  // USER_NOT_FOUND
         } else if (user == "wrong_pass") {
-            success = false;
-            message = "Invalid password (Simulated)";
-        } else {
-            message = "Login successful";
+            status = 1;
+            error_code = 2002;  // PASSWORD_INCORRECT
         }
+        // 成功时 status=0, error_code=0
     } 
     else if (req_type == "register") {
         std::string user = request.value("username", "");
         if (user == "existing_user") {
-            success = false;
-            message = "User already exists (Simulated)";
-        } else {
-            message = "Registration successful";
+            status = 1;
+            error_code = 2003;  // USER_ALREADY_EXISTS
         }
     }
     else if (req_type == "add_warning") {
         json new_warning = request;
-        // 移除请求特有的字段，保留数据字段
         new_warning.erase("type");
         new_warning.erase("request_id");
+        new_warning.erase("ver");
+        new_warning.erase("ts");
         
         // 生成模拟 ID
-        new_warning["order_id"] = "mock_ord_" + std::to_string(mock_warnings_.size() + 1);
+        std::string order_id = "mock_ord_" + std::to_string(mock_warnings_.size() + 1);
+        new_warning["order_id"] = order_id;
         new_warning["status"] = "active";
+        new_warning["created_at"] = "2025-12-03T12:00:00Z";
         
         mock_warnings_.push_back(new_warning);
-        message = "Warning added";
+        
+        response["data"]["order_id"] = order_id;
     }
     else if (req_type == "modify_warning") {
         std::string order_id = request.value("order_id", "");
         bool found = false;
         for (auto& w : mock_warnings_) {
             if (w.value("order_id", "") == order_id) {
-                // 更新字段
                 if (request.contains("max_price")) w["max_price"] = request["max_price"];
                 if (request.contains("min_price")) w["min_price"] = request["min_price"];
                 if (request.contains("trigger_time")) w["trigger_time"] = request["trigger_time"];
@@ -365,10 +387,8 @@ void FuturesClient::simulate_response(const json& request) {
             }
         }
         if (!found) {
-            success = false;
-            message = "Warning not found";
-        } else {
-            message = "Warning modified";
+            status = 1;
+            error_code = 3001;  // WARNING_NOT_FOUND
         }
     }
     else if (req_type == "delete_warning") {
@@ -378,21 +398,27 @@ void FuturesClient::simulate_response(const json& request) {
         
         if (it != mock_warnings_.end()) {
             mock_warnings_.erase(it, mock_warnings_.end());
-            message = "Warning deleted";
         } else {
-            success = false;
-            message = "Warning not found";
+            status = 1;
+            error_code = 3001;  // WARNING_NOT_FOUND
         }
     }
     else if (req_type == "query_warnings") {
-        response["data"] = mock_warnings_;
+        json data;
+        data["warnings"] = mock_warnings_;
+        data["total"] = mock_warnings_.size();
+        response["data"] = data;
+    }
+    else if (req_type == "set_email") {
+        // 成功，不需要额外处理
     }
 
-    response["success"] = success;
-    response["message"] = message;
+    response["status"] = status;
+    response["error_code"] = error_code;
+
+    LOG_DEBUG("[FuturesClient] Simulate response: " << response.dump());
 
     // 使用 post 将回调放入 io_context 队列，模拟异步接收
-    // 这样可以确保回调在 io_context 线程中执行，与真实网络行为一致
     boost::asio::post(io_context_, [this, response]() {
         handle_message(response);
     });

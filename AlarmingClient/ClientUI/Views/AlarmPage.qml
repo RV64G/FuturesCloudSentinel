@@ -3,10 +3,10 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Page {
-    title: "Alarm Monitor"
-    property var theme: ApplicationWindow.window.theme
+    title: "预警监控"
+    property var theme: ApplicationWindow.window ? ApplicationWindow.window.theme : null
 
-    background: Rectangle { color: theme.background }
+    background: Rectangle { color: theme ? theme.background : "#ffffff" }
 
     Component.onCompleted: backend.queryWarnings()
 
@@ -31,13 +31,13 @@ Page {
                         Label { 
                             text: modelData.contract_name ? modelData.contract_name : ""
                             font.pixelSize: 12
-                            color: theme.colorOutline
+                            color: theme ? theme.colorOutline : "#888888"
                             Layout.alignment: Qt.AlignBaseline
                         }
                         Label {
-                            property double currentPrice: (backend.prices && backend.prices[modelData.symbol]) ? backend.prices[modelData.symbol] : 0
+                            property double currentPrice: (backend && backend.prices && backend.prices[modelData.symbol]) ? backend.prices[modelData.symbol] : 0
                             property double previousPrice: 0
-                            property color priceColor: theme.colorOnSurfaceVariant // Default gray
+                            property color priceColor: theme ? theme.colorOnSurfaceVariant : "#666666"
 
                             onCurrentPriceChanged: {
                                 if (currentPrice > previousPrice && previousPrice !== 0) {
@@ -45,7 +45,7 @@ Page {
                                 } else if (currentPrice < previousPrice && previousPrice !== 0) {
                                     priceColor = "#00C853" // Green (Lower)
                                 } else {
-                                    priceColor = theme.colorOnSurfaceVariant // Gray (Equal or First load)
+                                    priceColor = theme ? theme.colorOnSurfaceVariant : "#666666"
                                 }
                                 previousPrice = currentPrice
                             }
@@ -63,14 +63,18 @@ Page {
                                      (modelData.max_price && modelData.min_price ? " | " : "") +
                                      (modelData.min_price ? "≤ " + modelData.min_price : ""))
                             
-                            color: theme.primary
+                            color: theme ? theme.primary : "#0078d4"
                         }
                     }
-                    Label { text: modelData.type; font.pixelSize: 12; color: theme.colorOnSurfaceVariant }
+                    Label { 
+                        text: modelData.type === "time" ? "时间预警" : "价格预警"
+                        font.pixelSize: 12
+                        color: theme ? theme.colorOnSurfaceVariant : "#666666" 
+                    }
                 }
                 highlighted: ListView.isCurrentItem
                 onClicked: {
-                    ListView.view.currentIndex = index
+                    alarmListView.currentIndex = index
                     detailPanel.loadWarningForEdit(modelData)
                 }
             }
@@ -82,7 +86,7 @@ Page {
         Rectangle {
             id: detailPanel
             SplitView.fillWidth: true
-            color: theme.surface // Use theme surface color
+            color: theme ? theme.surface : "#f5f5f5"
             
             property string currentOrderId: ""
             property bool isModifyMode: false
@@ -94,7 +98,29 @@ Page {
                 isModifyMode = true
                 originalSymbol = warningItem.symbol
                 
-                instrumentCombo.editText = warningItem.symbol
+                // 查找完整的显示文本 "名称 (代码)"
+                var displayText = warningItem.symbol
+                if (warningItem.contract_name && warningItem.contract_name !== warningItem.symbol) {
+                    displayText = warningItem.contract_name + " (" + warningItem.symbol + ")"
+                }
+                
+                // 在 model 中查找匹配项
+                var foundIndex = -1
+                for (var i = 0; i < instrumentCombo.count; i++) {
+                    var itemText = instrumentCombo.textAt(i)
+                    if (itemText.indexOf("(" + warningItem.symbol + ")") !== -1) {
+                        foundIndex = i
+                        displayText = itemText
+                        break
+                    }
+                }
+                
+                if (foundIndex >= 0) {
+                    instrumentCombo.currentIndex = foundIndex
+                    instrumentCombo.editText = displayText  // 必须手动设置 editText
+                } else {
+                    instrumentCombo.editText = displayText
+                }
                 
                 if (warningItem.type === "time") {
                     typeCombo.currentIndex = 1 // Time
@@ -127,14 +153,7 @@ Page {
             Connections {
                 target: backend
                 function onWarningListChanged() {
-                    // Force refresh if needed
                     alarmListView.model = backend.warningList
-                    if (!detailPanel.isModifyMode) {
-                        // Clear inputs only if we were adding (successful add)
-                        // But if user was typing, maybe we shouldn't? 
-                        // Let's clear to indicate success.
-                        detailPanel.resetForm(false)
-                    }
                 }
             }
 
@@ -159,24 +178,10 @@ Page {
                         Layout.fillWidth: true
                         ComboBox { 
                             id: instrumentCombo
-                            // Add safety check for backend
-                            model: (typeof backend !== "undefined" && backend) ? backend.contractCodes : []
+                            model: backend ? backend.contractCodes : []
                             editable: true
-                            Layout.fillWidth: true 
-                            
-                            onEditTextChanged: {
-                                // If user changes symbol while in modify mode, switch to add mode
-                                if (detailPanel.isModifyMode && editText !== detailPanel.originalSymbol) {
-                                    detailPanel.resetForm(true) // Keep the text user just typed
-                                }
-                            }
-
-                            onActivated: {
-                                 // If user selects a different symbol while in modify mode, switch to add mode
-                                if (detailPanel.isModifyMode && currentText !== detailPanel.originalSymbol) {
-                                    detailPanel.resetForm(true) // Keep the selected text
-                                }
-                            }
+                            Layout.fillWidth: true
+                            currentIndex: 0
                         }
                         Label {
                             property string currentCode: {
@@ -192,9 +197,9 @@ Page {
                                 }
                             }
 
-                            property double currentPrice: (backend.prices && backend.prices[currentCode]) ? backend.prices[currentCode] : 0
+                            property double currentPrice: (backend && backend.prices && backend.prices[currentCode]) ? backend.prices[currentCode] : 0
                             property double previousPrice: 0
-                            property color priceColor: theme.colorOnSurfaceVariant // Default gray
+                            property color priceColor: theme ? theme.colorOnSurfaceVariant : "#666666"
 
                             onCurrentPriceChanged: {
                                 if (currentPrice > previousPrice && previousPrice !== 0) {
@@ -202,10 +207,7 @@ Page {
                                 } else if (currentPrice < previousPrice && previousPrice !== 0) {
                                     priceColor = "#00C853" // Green (Lower)
                                 } else {
-                                    // Keep previous color or reset to gray? 
-                                    // Usually if price doesn't change, we keep the color or go gray.
-                                    // Let's go gray for "Equal" as requested.
-                                    priceColor = theme.colorOnSurfaceVariant 
+                                    priceColor = theme ? theme.colorOnSurfaceVariant : "#666666"
                                 }
                                 previousPrice = currentPrice
                             }
@@ -315,9 +317,10 @@ Page {
 
                     Button {
                         text: "模拟触发"
+                        visible: backend ? backend.isSimulateServer : false  // 仅在模拟服务器模式显示
                         onClicked: {
                             var symbol = instrumentCombo.currentText
-                            backend.testTriggerAlert(symbol)
+                            if (backend) backend.testTriggerAlert(symbol)
                         }
                     }
 
@@ -330,8 +333,7 @@ Page {
                         onClicked: {
                             if (detailPanel.currentOrderId !== "") {
                                 backend.deleteWarning(detailPanel.currentOrderId)
-                                instrumentCombo.editText = ""
-                                detailPanel.resetForm()
+                                detailPanel.resetForm(true)  // 保留当前合约代码
                             }
                         }
                     }

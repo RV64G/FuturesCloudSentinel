@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstdlib>
 #include <deque>
@@ -11,9 +11,36 @@
 using boost::asio::ip::tcp;
 using json = nlohmann::json;
 
-// Uncomment the following line to enable global debug mode (Simulation + Debug UI)
-// 取消注释以下行以启用全局调试模式 (模拟服务器 + 调试UI功能)
+// ============================================================================
+// 编译选项 (Build Configuration)
+// ============================================================================
+// 
+// DEBUG_UI: 启用调试 UI 功能
+//   - 显示服务器 IP/端口输入框
+//   - 显示"模拟触发"按钮
+//   - IP/端口设置会被持久化
+//
+// SIMULATE_SERVER: 启用模拟服务器响应
+//   - 不发起真实 TCP 连接
+//   - 所有请求由本地模拟器处理
+//   - 用于在无服务器环境下测试 UI 流程
+//
+// 可以单独或同时启用：
+//   - 只启用 DEBUG_UI：连接真实服务器，但有调试界面
+//   - 只启用 SIMULATE_SERVER：使用模拟数据，但不显示调试界面
+//   - 两者都启用：模拟数据 + 调试界面（完整调试模式）
+//   - 两者都禁用：生产模式，连接真实服务器
+// ============================================================================
+
+// #define DEBUG_UI
+// #define SIMULATE_SERVER
+
+// Legacy macro support (保持向后兼容)
 #define GLOBAL_DEBUG_MODE
+#ifdef GLOBAL_DEBUG_MODE
+    #define DEBUG_UI
+    #define SIMULATE_SERVER
+#endif
 
 // --- 协议定义 ---
 
@@ -161,7 +188,7 @@ public:
      */
     void close();
 
-#ifdef GLOBAL_DEBUG_MODE
+#if defined(DEBUG_UI) || defined(SIMULATE_SERVER)
     /**
      * @brief 模拟触发预警 (调试用)
      * 手动触发一条预警消息推送给客户端
@@ -183,7 +210,7 @@ private:
     void handle_message(const json& j);                            ///< 处理完整的 JSON 消息
     void do_write();                                               ///< 执行实际的 Socket 写入
 
-#ifdef GLOBAL_DEBUG_MODE
+#ifdef SIMULATE_SERVER
     /**
      * @brief 模拟服务器响应 (调试模式)
      * 在不连接真实服务器的情况下，构造虚假的响应数据并触发回调。

@@ -1,5 +1,6 @@
 #include "WarningManager.h"
 #include "ContractData.h"
+#include <QDebug>
 
 WarningManager::WarningManager(QObject *parent) : QObject(parent) {}
 
@@ -62,67 +63,81 @@ void WarningManager::queryWarnings(const QString &statusFilter) {
 }
 
 void WarningManager::handleResponse(const std::string& type, bool success, const std::string& message, const nlohmann::json& j) {
+    qDebug() << "[WarningManager] handleResponse:" << QString::fromStdString(type) << "success:" << success;
+    
     if (type == "query_warnings") {
         if (success) {
-            if (j.contains("data") && j["data"].is_array()) {
-                warningList_.clear();
-                QStringList symbolsToSubscribe;
-                for (const auto& item : j["data"]) {
-                    QVariantMap map;
-                    map.insert("order_id", QString::fromStdString(item.value("order_id", "")));
-                    map.insert("symbol", QString::fromStdString(item.value("symbol", "")));
-                    
-                    std::string wType = item.value("type", "");
-                    if (wType.empty()) wType = item.value("warning_type", "");
-                    map.insert("type", QString::fromStdString(wType));
-
-                    // Add Contract Name
-                    std::string symbol = item.value("symbol", "");
-                    QString qSymbol = QString::fromStdString(symbol);
-                    if (!symbolsToSubscribe.contains(qSymbol)) {
-                        symbolsToSubscribe.append(qSymbol);
-                    }
-                    QString contractName = qSymbol; // Default to code
-                    
-                    for (const auto& entry : RAW_CONTRACT_DATA) {
-                        if (entry.code == symbol) {
-                            contractName = QString::fromStdString(entry.name);
-                            break;
-                        }
-                    }
-                    map.insert("contract_name", contractName);
-
-                    if (item.contains("max_price")) map.insert("max_price", item["max_price"].get<double>());
-                    if (item.contains("min_price")) map.insert("min_price", item["min_price"].get<double>());
-                    if (item.contains("trigger_time")) map.insert("trigger_time", QString::fromStdString(item["trigger_time"].get<std::string>()));
-                    warningList_.append(QVariant(map));
+            // 按照 protocol.md: data.warnings 是数组，data.total 是总数
+            nlohmann::json warnings;
+            if (j.contains("data")) {
+                if (j["data"].contains("warnings") && j["data"]["warnings"].is_array()) {
+                    warnings = j["data"]["warnings"];
+                } else if (j["data"].is_array()) {
+                    // 兼容旧格式
+                    warnings = j["data"];
                 }
-                emit warningListChanged();
+            }
+            
+            warningList_.clear();
+            QStringList symbolsToSubscribe;
+            for (const auto& item : warnings) {
+                QVariantMap map;
+                map.insert("order_id", QString::fromStdString(item.value("order_id", "")));
+                map.insert("symbol", QString::fromStdString(item.value("symbol", "")));
+                
+                std::string wType = item.value("warning_type", "");
+                if (wType.empty()) wType = item.value("type", "");
+                map.insert("type", QString::fromStdString(wType));
+
+                // Add Contract Name
+                std::string symbol = item.value("symbol", "");
+                QString qSymbol = QString::fromStdString(symbol);
+                if (!symbolsToSubscribe.contains(qSymbol) && !qSymbol.isEmpty()) {
+                    symbolsToSubscribe.append(qSymbol);
+                }
+                QString contractName = qSymbol; // Default to code
+                
+                for (const auto& entry : RAW_CONTRACT_DATA) {
+                    if (entry.code == symbol) {
+                        contractName = QString::fromStdString(entry.name);
+                        break;
+                    }
+                }
+                map.insert("contract_name", contractName);
+
+                if (item.contains("max_price")) map.insert("max_price", item["max_price"].get<double>());
+                if (item.contains("min_price")) map.insert("min_price", item["min_price"].get<double>());
+                if (item.contains("trigger_time")) map.insert("trigger_time", QString::fromStdString(item["trigger_time"].get<std::string>()));
+                warningList_.append(QVariant(map));
+            }
+            qDebug() << "[WarningManager] Loaded" << warningList_.size() << "warnings";
+            emit warningListChanged();
+            if (!symbolsToSubscribe.isEmpty()) {
                 emit subscribeRequest(symbolsToSubscribe);
             }
         } else {
-            emit operationResult(false, "Query failed: " + QString::fromStdString(message));
+            emit operationResult(false, QString::fromStdString(message));
         }
     } else if (type == "add_warning") {
         if (success) {
-            emit operationResult(true, "Warning added successfully");
+            emit operationResult(true, "预警添加成功");
             queryWarnings(); 
         } else {
-            emit operationResult(false, "Failed to add warning: " + QString::fromStdString(message));
+            emit operationResult(false, QString::fromStdString(message));
         }
     } else if (type == "modify_warning") {
         if (success) {
-            emit operationResult(true, "Warning modified successfully");
+            emit operationResult(true, "预警修改成功");
             queryWarnings();
         } else {
-            emit operationResult(false, "Failed to modify warning: " + QString::fromStdString(message));
+            emit operationResult(false, QString::fromStdString(message));
         }
     } else if (type == "delete_warning") {
         if (success) {
-            emit operationResult(true, "Warning deleted successfully");
+            emit operationResult(true, "预警删除成功");
             queryWarnings();
         } else {
-            emit operationResult(false, "Failed to delete warning: " + QString::fromStdString(message));
+            emit operationResult(false, QString::fromStdString(message));
         }
     }
 }
