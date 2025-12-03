@@ -7,7 +7,7 @@
 #include "threadpool.h"
 #define WIN32_LEAN_AND_MEAN
 
-
+#include "MarketSeverce.h"
 #include "threadpool.h"
 #include "router.h"
 
@@ -15,33 +15,19 @@
 //SOCKET g_listenSocket = INVALID_SOCKET;
 //ThreadPool* g_pThreadPool = nullptr;
 
-DWORD WINAPI MyThreadProc(LPVOID lpParam) {
-    // 线程执行逻辑
-    std::cout << "子线程启动！线程 ID: " << GetCurrentThreadId() << std::endl;
-
-    // 模拟业务逻辑（如处理任务、休眠）
-    Sleep(2000);  // 休眠 2 秒（单位：毫秒）
-
-    std::cout << "子线程结束！" << std::endl;
-    return 0;  // 线程退出状态（0 表示正常退出）
-}
 
 int main() {
-    //开启后台线程，监听行情
-    HANDLE hThread = CreateThread(
-        NULL,               // 默认安全属性
-        0,                  // 默认栈大小
-        MyThreadProc,       // 线程函数指针
-        NULL,               // 无参数传递（lpParam = NULL）
-        0,                  // 立即启动线程
-        NULL                // 不需要线程 ID
-    );
+    ////开启后台线程，监听行情
+    //HANDLE hThread = CreateThread(
+    //    NULL,               // 默认安全属性
+    //    0,                  // 默认栈大小
+    //    MyThreadProc,       // 线程函数指针
+    //    NULL,               // 无参数传递（lpParam = NULL）
+    //    0,                  // 立即启动线程
+    //    NULL                // 不需要线程 ID
+    //);
 
-    // 检查线程创建是否成功
-    if (hThread == NULL) {
-        std::cerr << "线程创建失败！错误码: " << GetLastError() << std::endl;
-        return 1;
-    }
+    StartMarketService();
 
 
     // 初始化Winsock

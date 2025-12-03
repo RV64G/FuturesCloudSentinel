@@ -117,11 +117,11 @@ SOCKET CreateListenSocket() {
         }
     }
 
-    if (bind(listenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+    /*if (bind(listenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         std::cerr << "[¶Ë¿Ú°ó¶¨Ê§°Ü] ´íÎóÂë: " << WSAGetLastError() << std::endl;
         closesocket(listenSocket);
         return INVALID_SOCKET;
-    }
+    }*/
 
     if (listen(listenSocket, 5) == SOCKET_ERROR) {
         std::cerr << "[¼àÌýÊ§°Ü] ´íÎóÂë: " << WSAGetLastError() << std::endl;
