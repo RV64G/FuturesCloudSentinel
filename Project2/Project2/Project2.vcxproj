@@ -121,21 +121,24 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\后端工程\生产实习\c++mysql\mysql-connector-c++-9.5.0-winx64\mysql-connector-c++-9.5.0-winx64\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files\MySQL\mysql-connector-c++-9.5.0-winx64\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\后端工程\生产实习\c++mysql\mysql-connector-c++-9.5.0-winx64\mysql-connector-c++-9.5.0-winx64\lib64\vs14</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Program Files\MySQL\mysql-connector-c++-9.5.0-winx64\lib64\vs14</AdditionalLibraryDirectories>
       <AdditionalDependencies>mysqlcppconn.lib;mysqlcppconnx.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="base.cpp" />
-    <ClCompile Include="C:\Users\HUAWEI\Documents\Tencent Files\2649796443\FileRecv\Message.cpp" />
+    <ClCompile Include="clientMessage.h" />
+    <ClCompile Include="EmailNotifier.cpp" />
     <ClCompile Include="handler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="db_manager.cpp" />
+    <ClCompile Include="MarketSeverce.cpp" />
+    <ClCompile Include="MduserHandler.cpp" />
     <ClCompile Include="threadpool.cpp" />
     <ClCompile Include="thread_local.cpp" />
     <ClCompile Include="userMapper.cpp" />
@@ -144,9 +147,27 @@
     <ClInclude Include="base.h" />
     <ClInclude Include="db_manager.h" />
     <ClInclude Include="handler.h" />
+    <ClInclude Include="MarketSeverce.h" />
+    <ClInclude Include="MduserHandler.h" />
     <ClInclude Include="router.h" />
     <ClInclude Include="threadpool.h" />
     <ClInclude Include="thread_local.h" />
+    <ClInclude Include="tradeapi\DataCollect.h" />
+    <ClInclude Include="tradeapi\ThostFtdcMdApi.h" />
+    <ClInclude Include="tradeapi\ThostFtdcTraderApi.h" />
+    <ClInclude Include="tradeapi\ThostFtdcUserApiDataType.h" />
+    <ClInclude Include="tradeapi\ThostFtdcUserApiStruct.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="tradeapi\error.dtd" />
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="tradeapi\error.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="lib\thostmduserapi_se.lib" />
+    <Library Include="lib\thosttraderapi_se.lib" />
+    <Library Include="lib\WinDataCollect.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

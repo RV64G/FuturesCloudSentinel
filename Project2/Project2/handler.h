@@ -10,7 +10,7 @@
 #include "nlohmann/json.hpp"  // 使用nlohmann/json库处理JSON
 #include <mysql/jdbc.h>
 #include "thread_local.h"
-
+#include "MduserHandler.h"
 #define WIN32_LEAN_AND_MEAN
 using json = nlohmann::json;
 
@@ -73,22 +73,39 @@ private:
 
         // 启动后台线程轮询数据库
         std::thread([token, username, stopFlag]() {
+            // 创建行情处理器实例
+            CMduserHandler& handler = CMduserHandler::GetHandler();
+            // 连接并登录行情服务器
+            handler.connect();
+            handler.login();
             while (!stopFlag->load()) {
+				// 最新行情缓存,之后和数据库对比
+                unordered_map<string, double> m_lastPrices = handler.m_lastPrices;
+                
                 try {
                     std::unique_ptr<sql::Connection> conn(getConn());
                     if (conn) {
                         conn->setSchema("cpptestmysql");
                         std::unique_ptr<sql::PreparedStatement> stmt(
-                            conn->prepareStatement("SELECT COUNT(*) AS cnt FROM alert_order WHERE account=? AND state=0")
+                            conn->prepareStatement("SELECT orderId, symbol, max_price, min_price, trigger_time, state FROM alert_order WHERE account=? AND state=0")
                         );
                         stmt->setString(1, username);
+                        //查询了未处理的预警单
                         std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
-                        if (res && res->next()) {
-                            int cnt = res->getInt("cnt");
-                            if (cnt > 0) {
-                                std::cout << "[守护线程] 用户 " << username << " 有 " << cnt << " 条未处理预警" << std::endl;
+                        
+                        // 关键修正：使用 std::move(res) 传递 unique_ptr 所有权
+                        //std::vector<std::string> constra = LoadContracts1(std::move(res));
+                        std::vector<AlertOrder> order = LoadAlertOrders(std::move(res));
+                        //对比
+                        if (order.size() > 0) {
+                            for (auto it = m_lastPrices.begin(); it != m_lastPrices.end(); ++it) {
+                            
+                                CheckAlert(order[0].symbol, it->second, order);
                             }
+                            
                         }
+                            
+                        
                     }
                 }
                 catch (sql::SQLException& e) {
@@ -110,7 +127,175 @@ private:
         }).detach();
     }
 
-    
+    static std::vector<AlertOrder> LoadAlertOrders(std::unique_ptr<sql::ResultSet> res)
+    {
+        std::vector<AlertOrder> orders;
+        try {
+            while (res && res->next()) {
+                AlertOrder a;
+                a.orderId = res->getInt("orderId");
+                a.symbol = res->getString("symbol");
+                // 如果数据库字段可能为 NULL，使用 isNull 检查
+                if (res->isNull("max_price")) a.max_price = 0.0;
+                else a.max_price = res->getDouble("max_price");
+                if (res->isNull("min_price")) a.min_price = 0.0;
+                else a.min_price = res->getDouble("min_price");
+                if (res->isNull("trigger_time")) {
+                    a.trigger_time = "";
+                }
+                else {
+                    a.trigger_time = res->getString("trigger_time");
+                }
+                a.state = res->getInt("state");
+                orders.push_back(std::move(a));
+            }
+        }
+        catch (sql::SQLException& e) {
+            // 可根据项目日志规范记录错误
+            fflush(stdout);
+        }
+        return orders;
+    }
+
+    static void CheckAlert(const string& symbol, double price, vector<AlertOrder> alerts)
+    {
+        
+        // 获取当前时间 - 使用安全的 localtime_s
+        time_t now = time(0);
+        tm local_tm = { 0 };
+        localtime_s(&local_tm, &now);  // 使用 localtime_s 替代 localtime
+        char time_buffer[20];
+        strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", &local_tm);
+        string current_time_str = string(time_buffer);
+		string message;
+        for (auto& a : alerts)
+        {
+            bool triggered = false;
+            string reason;
+
+            // 价格预警判断
+            if (a.max_price > 0 && price >= a.max_price) {
+                triggered = true;
+                reason = ">= 上限 " + to_string(a.max_price);
+            }
+            else if (a.min_price > 0 && price <= a.min_price) {
+                triggered = true;
+                message = "您的" + a.symbol + "合约已跌破下限 " + to_string(a.min_price) + "，当前价格 " + to_string(price) + "！";
+            }
+
+            // 时间预警判断（保持原有逻辑）
+            if (!triggered && !a.trigger_time.empty()) {
+                tm trigger_tm = { 0 };
+
+                // 使用 sscanf_s 替代 sscanf
+                int result = sscanf_s(a.trigger_time.c_str(), "%d-%d-%d %d:%d:%d",
+                    &trigger_tm.tm_year, &trigger_tm.tm_mon, &trigger_tm.tm_mday,
+                    &trigger_tm.tm_hour, &trigger_tm.tm_min, &trigger_tm.tm_sec);
+
+                // 检查解析是否成功
+                if (result == 6) {  // 成功解析了6个字段
+                    // 转换为标准 tm 格式
+                    trigger_tm.tm_year -= 1900;  // tm_year 从1900年开始计数
+                    trigger_tm.tm_mon -= 1;      // tm_mon 从0开始计数
+
+                    // 计算预警时间的前一天
+                    time_t trigger_time_t = mktime(&trigger_tm);
+                    time_t one_day_before = trigger_time_t - 24 * 60 * 60;  // 减去一天的秒数
+
+                    // 获取当前时间
+                    time_t current_time_t = time(0);
+
+                    // 判断是否在前一天范围内
+                    if (current_time_t >= one_day_before && current_time_t < trigger_time_t) {
+                        triggered = true;
+                        reason = "到达预定时间前一天 " + a.trigger_time;
+                    }
+                }
+            }
+
+            if (triggered)
+            {
+                //SendResponse(ThreadLocalUser::GetClient(), responseData)
+                ClientContext* client = ThreadLocalUser::GetClient();
+                if (!client) {
+                    // 无有效客户端上下文则跳过发送
+                    continue;
+                }
+
+                // 构造唯一 alert_id（可按需替换为更复杂的生成策略）
+                string alertId = "msg_" + to_string(a.orderId) + "_" + to_string((long)now);
+
+                // 构造 JSON 响应
+                json j = {
+                    {"type", "alert_triggered"},
+                    {"alert_id", alertId},
+                    {"order_id", to_string(a.orderId)},
+                    {"symbol", a.symbol},
+                    {"trigger_value", price},
+                    {"trigger_time", current_time_str},
+                    {"message", message}
+                };
+
+                string responseData = j.dump();
+
+                // 发送响应（忽略返回值或根据需要记录）
+                SendResponse(client, responseData);
+            }
+        }
+    }
+
+    static bool SendResponse(ClientContext* client, const std::string& responseData) {
+        // 检查响应长度
+        if (responseData.size() > client->writeMsg.max_body_length) {
+            std::cerr << "[响应过长] 超过最大长度: " << client->writeMsg.max_body_length << std::endl;
+            return false;
+        }
+
+        // 填充响应数据
+        client->writeMsg.body_length(responseData.size());
+        std::memcpy(client->writeMsg.body(), responseData.data(), responseData.size());
+        client->writeMsg.encode_header();
+
+        // 发送数据
+        int totalSent = 0;
+        int dataLength = client->writeMsg.length();
+        const char* data = client->writeMsg.data();
+
+        while (totalSent < dataLength) {
+            int sent = send(client->clientSocket, data + totalSent, dataLength - totalSent, 0);
+            if (sent == SOCKET_ERROR) {
+                return false;
+            }
+            totalSent += sent;
+        }
+
+        return true;
+    }
+
+    // 转化格式的合约列表
+    static std::vector<std::string> LoadContracts1(std::unique_ptr<sql::ResultSet> res)
+    {
+        std::vector<std::string> contracts;
+
+        try {
+            
+            while (res->next()) {
+                contracts.push_back(res->getString("symbol"));
+            }
+
+            //printf("从数据库加载了 %zu 个合约\n", contracts.size());
+            for (const auto& contract : contracts) {
+                printf("  - %s\n", contract.c_str());
+            }
+            fflush(stdout);
+        }
+        catch (sql::SQLException& e) {
+            //printf("[DB ERROR] 加载合约列表失败: %s\n", e.what());
+            fflush(stdout);
+        }
+
+        return contracts;
+    }
 
 public:
     

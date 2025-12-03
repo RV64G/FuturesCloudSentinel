@@ -29,7 +29,7 @@ const int LISTEN_PORT = 8888;
 
 // 前置声明
 class RequestRouter;
-
+/*
 // 客户端上下文结构
 struct ClientContext {
     SOCKET clientSocket;
@@ -41,7 +41,7 @@ struct ClientContext {
         : clientSocket(sock), clientAddr(addr) {
     }
 };
-
+*/
 // 线程池类
 class ThreadPool {
 private:
@@ -101,7 +101,7 @@ private:
         uint16_t clientPort = ntohs(client->clientAddr.sin_port);
 
         std::cout << "[客户端连接] IP: " << clientIP << ", 端口: " << clientPort << std::endl;
-
+		ThreadLocalUser::SetClient(client);
         while (isRunning && !g_shouldQuit) {
             // 读取消息头
             int bytesRead = recv(client->clientSocket,

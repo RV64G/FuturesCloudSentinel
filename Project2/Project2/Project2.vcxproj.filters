@@ -33,11 +33,20 @@
     <ClCompile Include="thread_local.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\HUAWEI\Documents\Tencent Files\2649796443\FileRecv\Message.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="base.cpp">
       <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="EmailNotifier.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MarketSeverce.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MduserHandler.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="clientMessage.h">
+      <Filter>头文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -59,5 +68,37 @@
     <ClInclude Include="router.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="MarketSeverce.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MduserHandler.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="tradeapi\DataCollect.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="tradeapi\ThostFtdcMdApi.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="tradeapi\ThostFtdcTraderApi.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="tradeapi\ThostFtdcUserApiDataType.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="tradeapi\ThostFtdcUserApiStruct.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="tradeapi\error.dtd" />
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="tradeapi\error.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="lib\thostmduserapi_se.lib" />
+    <Library Include="lib\thosttraderapi_se.lib" />
+    <Library Include="lib\WinDataCollect.lib" />
   </ItemGroup>
 </Project>
