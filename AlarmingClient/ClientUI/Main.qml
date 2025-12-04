@@ -65,31 +65,14 @@ ApplicationWindow {
     Connections {
         target: backend
         function onShowMessage(message) {
-            // 如果是预警触发消息，弹出模态对话框
+            // 所有消息统一用 tips 弹出
             if (message.indexOf("预警触发") !== -1) {
-                alertDialog.text = message
-                alertDialog.open()
+                // 预警触发消息使用 error 类型以突出显示
+                if (tips) tips.showMessage(message, "error")
             } else {
-                // 其他消息用 tips 提示
+                // 其他消息用 info 类型
                 if (tips) tips.showMessage(message, "info")
             }
-        }
-    }
-
-    Dialog {
-        id: alertDialog
-        title: "⚠️ 预警触发"
-        anchors.centerIn: parent
-        modal: true
-        standardButtons: Dialog.Ok
-        property alias text: msgLabel.text
-        
-        Label {
-            id: msgLabel
-            text: ""
-            font.pixelSize: 16
-            color: "#F14C4C"
-            font.bold: true
         }
     }
 }

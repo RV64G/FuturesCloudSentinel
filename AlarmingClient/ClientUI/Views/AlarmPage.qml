@@ -57,12 +57,13 @@ Page {
                         }
                         Item { Layout.fillWidth: true }
                         Label { 
+                            // 价格预警显示上下限
                             text: modelData.type === "time" 
-                                  ? ((modelData.trigger_time || ""))
+                                  ? ""
                                   : ((modelData.max_price ? "≥ " + modelData.max_price : "") + 
                                      (modelData.max_price && modelData.min_price ? " | " : "") +
                                      (modelData.min_price ? "≤ " + modelData.min_price : ""))
-                            
+                            visible: modelData.type !== "time"
                             color: theme ? theme.primary : "#0078d4"
                         }
                     }
@@ -77,6 +78,16 @@ Page {
                             text: modelData.status === "triggered" ? "已触发" : "未触发"
                             font.pixelSize: 12
                             color: modelData.status === "triggered" ? "#F14C4C" : (theme ? theme.colorOnSurfaceVariant : "#666666")
+                        }
+                        Item { Layout.fillWidth: true }
+                        Label {
+                            // 时间预警在这里显示触发时间，只显示时间部分
+                            text: modelData.type === "time" && modelData.trigger_time 
+                                  ? modelData.trigger_time.substring(5)  // 去掉年份，显示 MM-DD HH:mm:ss
+                                  : ""
+                            visible: modelData.type === "time" && modelData.trigger_time
+                            font.pixelSize: 12
+                            color: theme ? theme.primary : "#0078d4"
                         }
                     }
                 }
@@ -153,7 +164,12 @@ Page {
                 }
                 maxPriceField.text = ""
                 minPriceField.text = ""
-                timeField.text = ""
+                // 重置时间字段为今天日期
+                var today = new Date()
+                var yyyy = today.getFullYear()
+                var mm = String(today.getMonth() + 1).padStart(2, '0')
+                var dd = String(today.getDate()).padStart(2, '0')
+                timeField.text = yyyy + "-" + mm + "-" + dd + " 00:00:00"
                 deleteBtn.visible = false
                 alarmListView.currentIndex = -1 // Deselect list
             }
@@ -265,10 +281,19 @@ Page {
                     }
                     TextField { 
                         id: timeField
-                        placeholderText: "HH:mm:ss"
-                        inputMask: "99:99:99"
+                        placeholderText: "YYYY-MM-DD HH:mm:ss"
+                        inputMask: "9999-99-99 99:99:99"
                         Layout.fillWidth: true 
                         visible: typeCombo.currentIndex === 1
+                        
+                        // 自动填充今天日期
+                        Component.onCompleted: {
+                            var today = new Date()
+                            var yyyy = today.getFullYear()
+                            var mm = String(today.getMonth() + 1).padStart(2, '0')
+                            var dd = String(today.getDate()).padStart(2, '0')
+                            text = yyyy + "-" + mm + "-" + dd + " 00:00:00"
+                        }
                     }
                 }
 
@@ -309,8 +334,16 @@ Page {
                                 }
                             } else { // Time
                                 var timeStr = timeField.text.trim()
-                                if (timeStr === "") {
-                                    if (ApplicationWindow.window.tips) ApplicationWindow.window.tips.showMessage("请输入触发时间", "error")
+                                console.log("[AlarmPage] Time string:", timeStr)
+                                // inputMask 会用空格填充未输入的位置，检查是否完整
+                                if (timeStr === "" || timeStr.indexOf(" ") === 0 || timeStr.length < 19) {
+                                    if (ApplicationWindow.window.tips) ApplicationWindow.window.tips.showMessage("请输入完整的触发时间", "error")
+                                    return
+                                }
+                                // 验证格式是否正确 (简单检查)
+                                var regex = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
+                                if (!regex.test(timeStr)) {
+                                    if (ApplicationWindow.window.tips) ApplicationWindow.window.tips.showMessage("时间格式不正确，请使用 YYYY-MM-DD HH:mm:ss", "error")
                                     return
                                 }
 

@@ -59,8 +59,8 @@ public:
 static sql::Connection* GetConn()
 {
     sql::Driver* driver = get_driver_instance();
-    sql::Connection* conn = driver->connect("tcp://127.0.0.1:3306", "root", "1234");
-    conn->setSchema("futurescloudsentinel");
+    sql::Connection* conn = driver->connect("tcp://127.0.0.1:3306", "root", "123456");
+    conn->setSchema("cpptestmysql");
     return conn;
 }
 
@@ -108,6 +108,13 @@ private:
 
 public:
 
+    // ===================== 单例模式 =====================
+    static CMduserHandler& GetHandler()
+    {
+        static CMduserHandler instance;
+        return instance;
+    }
+
     CMduserHandler()
     {
         m_notifier = make_shared<ConsoleNotifier>();
@@ -125,6 +132,13 @@ public:
     void SetNotifier(shared_ptr<INotifier> n)
     {
         m_notifier = n;
+    }
+
+    // ===================== 获取最新行情缓存 =====================
+    unordered_map<string, double> GetLastPrices()
+    {
+        lock_guard<mutex> lk(m_priceMutex);
+        return m_lastPrices;
     }
 
     // =====================================================

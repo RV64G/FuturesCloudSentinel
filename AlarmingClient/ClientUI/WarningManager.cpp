@@ -27,15 +27,26 @@ void WarningManager::addPriceWarning(const QString &symbol, double maxPrice, dou
 }
 
 void WarningManager::addTimeWarning(const QString &symbol, const QString &timeStr) {
-    if (!client_) {
-        emit operationResult(false, "Not connected to server");
-        return;
+    try {
+        qDebug() << "[WarningManager] addTimeWarning called with symbol:" << symbol << "time:" << timeStr;
+        if (!client_) {
+            emit operationResult(false, "Not connected to server");
+            return;
+        }
+        if (currentUsername_.isEmpty()) {
+            emit operationResult(false, "Please login first");
+            return;
+        }
+        qDebug() << "[WarningManager] Calling client add_time_warning...";
+        client_->add_time_warning(currentUsername_.toStdString(), symbol.toStdString(), timeStr.toStdString());
+        qDebug() << "[WarningManager] add_time_warning call completed";
+    } catch (const std::exception& e) {
+        qCritical() << "[WarningManager] addTimeWarning exception:" << e.what();
+        emit operationResult(false, QString("异常: %1").arg(e.what()));
+    } catch (...) {
+        qCritical() << "[WarningManager] addTimeWarning unknown exception";
+        emit operationResult(false, "未知异常");
     }
-    if (currentUsername_.isEmpty()) {
-        emit operationResult(false, "Please login first");
-        return;
-    }
-    client_->add_time_warning(currentUsername_.toStdString(), symbol.toStdString(), timeStr.toStdString());
 }
 
 void WarningManager::modifyPriceWarning(const QString &orderId, double maxPrice, double minPrice) {
@@ -82,11 +93,30 @@ void WarningManager::handleResponse(const std::string& type, bool success, const
             QStringList symbolsToSubscribe;
             for (const auto& item : warnings) {
                 QVariantMap map;
-                map.insert("order_id", QString::fromStdString(item.value("order_id", "")));
+                
+                // 安全解析 order_id（可能是字符串或整数）
+                QString orderId;
+                if (item.contains("order_id")) {
+                    if (item["order_id"].is_string()) {
+                        orderId = QString::fromStdString(item["order_id"].get<std::string>());
+                    } else if (item["order_id"].is_number()) {
+                        orderId = QString::number(item["order_id"].get<long>());
+                    }
+                }
+                map.insert("order_id", orderId);
                 map.insert("symbol", QString::fromStdString(item.value("symbol", "")));
                 
                 std::string wType = item.value("warning_type", "");
                 if (wType.empty()) wType = item.value("type", "");
+                // 如果仍为空，根据字段推断类型
+                if (wType.empty()) {
+                    bool hasTriggerTime = item.contains("trigger_time") && !item["trigger_time"].is_null() 
+                                          && item["trigger_time"].is_string() && !item["trigger_time"].get<std::string>().empty();
+                    bool hasPrice = (item.contains("max_price") && !item["max_price"].is_null()) 
+                                    || (item.contains("min_price") && !item["min_price"].is_null());
+                    wType = (hasTriggerTime && !hasPrice) ? "time" : "price";
+                }
+                qDebug() << "[WarningManager] Parsed warning: order_id=" << orderId << "type=" << QString::fromStdString(wType);
                 map.insert("type", QString::fromStdString(wType));
 
                 // Add Contract Name
@@ -105,9 +135,22 @@ void WarningManager::handleResponse(const std::string& type, bool success, const
                 }
                 map.insert("contract_name", contractName);
 
-                if (item.contains("max_price")) map.insert("max_price", item["max_price"].get<double>());
-                if (item.contains("min_price")) map.insert("min_price", item["min_price"].get<double>());
-                if (item.contains("trigger_time")) map.insert("trigger_time", QString::fromStdString(item["trigger_time"].get<std::string>()));
+                // 安全解析数值字段（可能为 null）
+                if (item.contains("max_price") && !item["max_price"].is_null()) {
+                    if (item["max_price"].is_number()) {
+                        map.insert("max_price", item["max_price"].get<double>());
+                    }
+                }
+                if (item.contains("min_price") && !item["min_price"].is_null()) {
+                    if (item["min_price"].is_number()) {
+                        map.insert("min_price", item["min_price"].get<double>());
+                    }
+                }
+                if (item.contains("trigger_time") && !item["trigger_time"].is_null()) {
+                    if (item["trigger_time"].is_string()) {
+                        map.insert("trigger_time", QString::fromStdString(item["trigger_time"].get<std::string>()));
+                    }
+                }
                 
                 // 解析触发状态
                 std::string status = item.value("status", "active");

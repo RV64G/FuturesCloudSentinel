@@ -99,10 +99,11 @@ void FuturesClient::login(const std::string& username, const std::string& passwo
     send_json(j);
 }
 
-void FuturesClient::set_email(const std::string& email) {
+void FuturesClient::set_email(const std::string& username, const std::string& email) {
     json j;
     j["type"] = "set_email";
     j["request_id"] = generate_request_id();
+    j["username"] = username;
     j["email"] = email;
     send_json(j);
 }
@@ -120,14 +121,20 @@ void FuturesClient::add_price_warning(const std::string& account, const std::str
 }
 
 void FuturesClient::add_time_warning(const std::string& account, const std::string& symbol, const std::string& trigger_time) {
-    json j;
-    j["type"] = "add_warning";
-    j["request_id"] = generate_request_id();
-    j["warning_type"] = "time";
-    j["account"] = account;
-    j["symbol"] = symbol;
-    j["trigger_time"] = trigger_time;
-    send_json(j);
+    try {
+        LOG_DEBUG("[FuturesClient] add_time_warning: account=" << account << " symbol=" << symbol << " time=" << trigger_time);
+        json j;
+        j["type"] = "add_warning";
+        j["request_id"] = generate_request_id();
+        j["warning_type"] = "time";
+        j["account"] = account;
+        j["symbol"] = symbol;
+        j["trigger_time"] = trigger_time;
+        send_json(j);
+    } catch (const std::exception& e) {
+        LOG_ERROR("[FuturesClient] add_time_warning exception: " << e.what());
+        throw;
+    }
 }
 
 void FuturesClient::delete_warning(const std::string& order_id) {
@@ -269,11 +276,12 @@ void FuturesClient::do_read_body() {
 void FuturesClient::handle_message(const json& j) {
     // 1. 协议层逻辑：自动回复 ACK
     // 如果收到预警触发消息，必须回复 ACK 告知服务器已收到
-    if (j.value("type", "") == "alert_triggered" && j.contains("alert_id")) {
-        LOG_DEBUG("[FuturesClient] Alert triggered, sending ACK");
+    if (j.value("type", "") == "alert_triggered" && j.contains("order_id")) {
+        LOG_DEBUG("[FuturesClient] Alert triggered, sending ACK for order_id: " << j["order_id"]);
         json ack;
         ack["type"] = "alert_ack";
-        ack["alert_id"] = j["alert_id"];
+        ack["request_id"] = "ack_" + j["order_id"].get<std::string>();
+        ack["order_id"] = j["order_id"];
         send_json(ack);
         // 注意：这里不 return，继续向下传递给 UI，因为 UI 也需要弹窗
     }

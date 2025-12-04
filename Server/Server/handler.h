@@ -24,6 +24,20 @@ using json = nlohmann::json;
 class FuturesAlertServer;
 using RequestHandler = std::function<json(FuturesAlertServer&, const json&)>;
 
+// 辅助函数：安全解析 order_id（可能是字符串或整数）
+inline long parseOrderId(const json& request, const std::string& field = "order_id") {
+    if (!request.contains(field)) {
+        throw std::runtime_error("缺少 " + field + " 字段");
+    }
+    const auto& val = request[field];
+    if (val.is_number_integer()) {
+        return val.get<long>();
+    } else if (val.is_string()) {
+        return std::stol(val.get<std::string>());
+    }
+    throw std::runtime_error(field + " 格式无效");
+}
+
 class FuturesAlertServer {
 private:
     // 路由映射表：请求类型 -> 处理函数
@@ -90,17 +104,25 @@ private:
 
         auto stopFlag = std::make_shared<std::atomic<bool>>(false);
         userWatchers[token] = stopFlag;
+        
+        // 获取当前客户端上下文（在主处理线程中调用时有效）
+        ClientContext* client = ThreadLocalUser::GetClient();
 
         // 启动后台线程轮询数据库
-        std::thread([token, username, stopFlag]() {
+        std::thread([token, username, stopFlag, client]() {
+            std::cout << "[守护线程] 启动，用户=" << username << " client=" << (client ? "有效" : "空") << std::endl;
+            
             // 创建行情处理器实例
             CMduserHandler& handler = CMduserHandler::GetHandler();
             // 连接并登录行情服务器
             handler.connect();
             handler.login();
+            
+            int loopCount = 0;
             while (!stopFlag->load()) {
+                loopCount++;
 				// 最新行情缓存,之后和数据库对比
-                unordered_map<string, double> m_lastPrices = handler.m_lastPrices;
+                unordered_map<string, double> m_lastPrices = handler.GetLastPrices();
                 
                 try {
                     std::unique_ptr<sql::Connection> conn(getConn());
@@ -116,13 +138,17 @@ private:
                         // 关键修正：使用 std::move(res) 传递 unique_ptr 所有权
                         //std::vector<std::string> constra = LoadContracts1(std::move(res));
                         std::vector<AlertOrder> order = LoadAlertOrders(std::move(res));
+                        
+                        // 每10次循环输出一次状态（约50秒一次）
+                        if (loopCount % 10 == 1) {
+                            std::cout << "[守护线程] 轮询#" << loopCount << " 用户=" << username 
+                                      << " 待处理预警=" << order.size() << std::endl;
+                        }
+                        
                         //对比
-                        if (order.size() > 0) {
-                            for (auto it = m_lastPrices.begin(); it != m_lastPrices.end(); ++it) {
-                            
-                                CheckAlert(order[0].symbol, it->second, order);
-                            }
-                            
+                        if (order.size() > 0 && client != nullptr) {
+                            // 统一检查所有预警（价格+时间）
+                            CheckAllAlerts(order, m_lastPrices, client);
                         }
                             
                         
@@ -137,6 +163,8 @@ private:
 
                 std::this_thread::sleep_for(std::chrono::seconds(5));
             }
+            
+            std::cout << "[守护线程] 退出，用户=" << username << std::endl;
 
             // 线程退出前从映射中移除自身
             std::lock_guard<std::mutex> lk2(userWatchersMutex);
@@ -177,93 +205,139 @@ private:
         return orders;
     }
 
-    static void CheckAlert(const string& symbol, double price, vector<AlertOrder> alerts)
+    // 统一检查所有预警（价格预警 + 时间预警）
+    static void CheckAllAlerts(vector<AlertOrder>& alerts, const unordered_map<string, double>& prices, ClientContext* client)
     {
+        if (!client) {
+            std::cout << "[CheckAllAlerts] client为空，跳过" << std::endl;
+            return;
+        }
         
-        // 获取当前时间 - 使用安全的 localtime_s
+        // 获取当前时间
         time_t now = time(0);
         tm local_tm = { 0 };
-        localtime_s(&local_tm, &now);  // 使用 localtime_s 替代 localtime
+        localtime_s(&local_tm, &now);
         char time_buffer[20];
         strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", &local_tm);
         string current_time_str = string(time_buffer);
-		string message;
+        
+        std::cout << "[CheckAllAlerts] 检查 " << alerts.size() << " 个预警，当前时间=" << current_time_str << std::endl;
+        
         for (auto& a : alerts)
         {
             bool triggered = false;
             string reason;
-
-            // 价格预警判断
-            if (a.max_price > 0 && price >= a.max_price) {
-                triggered = true;
-                reason = ">= 上限 " + to_string(a.max_price);
-            }
-            else if (a.min_price > 0 && price <= a.min_price) {
-                triggered = true;
-                message = "您的" + a.symbol + "合约已跌破下限 " + to_string(a.min_price) + "，当前价格 " + to_string(price) + "！";
-            }
-
-            // 时间预警判断（保持原有逻辑）
-            if (!triggered && !a.trigger_time.empty()) {
-                tm trigger_tm = { 0 };
-
-                // 使用 sscanf_s 替代 sscanf
-                int result = sscanf_s(a.trigger_time.c_str(), "%d-%d-%d %d:%d:%d",
-                    &trigger_tm.tm_year, &trigger_tm.tm_mon, &trigger_tm.tm_mday,
-                    &trigger_tm.tm_hour, &trigger_tm.tm_min, &trigger_tm.tm_sec);
-
-                // 检查解析是否成功
-                if (result == 6) {  // 成功解析了6个字段
-                    // 转换为标准 tm 格式
-                    trigger_tm.tm_year -= 1900;  // tm_year 从1900年开始计数
-                    trigger_tm.tm_mon -= 1;      // tm_mon 从0开始计数
-
-                    // 计算预警时间
-                    time_t trigger_time_t = mktime(&trigger_tm);
-                    time_t one_day_before = trigger_time_t ;  // 不减去一天的秒数
-
-                    // 获取当前时间
-                    time_t current_time_t = time(0);
-
-                    // 判断是否在前一天范围内
-                    if (current_time_t >= one_day_before && current_time_t < trigger_time_t) {
+            double triggerPrice = 0.0;
+            
+            // 1. 检查价格预警（需要有对应合约的行情）
+            bool hasPriceCondition = (a.max_price > 0 || a.min_price > 0);
+            if (hasPriceCondition && !a.symbol.empty()) {
+                auto it = prices.find(a.symbol);
+                if (it != prices.end()) {
+                    double price = it->second;
+                    triggerPrice = price;
+                    
+                    if (a.max_price > 0 && price >= a.max_price) {
                         triggered = true;
-                        reason = "到达预定时间前一天 " + a.trigger_time;
+                        reason = a.symbol + " price " + to_string(price) + " >= max " + to_string(a.max_price);
+                    }
+                    else if (a.min_price > 0 && price <= a.min_price) {
+                        triggered = true;
+                        reason = a.symbol + " price " + to_string(price) + " <= min " + to_string(a.min_price);
                     }
                 }
             }
-
-            if (triggered)
-            {
-                //SendResponse(ThreadLocalUser::GetClient(), responseData)
-                ClientContext* client = ThreadLocalUser::GetClient();
-                if (!client) {
-                    // 无有效客户端上下文则跳过发送
-                    continue;
+            
+            // 2. 检查时间预警（不依赖行情数据）
+            //    只有在价格没触发时才检查时间，避免重复触发
+            if (!triggered && !a.trigger_time.empty()) {
+                std::cout << "[CheckAllAlerts] 检查时间预警 orderId=" << a.orderId 
+                          << " trigger_time=" << a.trigger_time << std::endl;
+                          
+                tm trigger_tm = { 0 };
+                int result = sscanf_s(a.trigger_time.c_str(), "%d-%d-%d %d:%d:%d",
+                    &trigger_tm.tm_year, &trigger_tm.tm_mon, &trigger_tm.tm_mday,
+                    &trigger_tm.tm_hour, &trigger_tm.tm_min, &trigger_tm.tm_sec);
+                
+                std::cout << "[CheckAllAlerts] 解析结果=" << result << " 年=" << trigger_tm.tm_year 
+                          << " 月=" << trigger_tm.tm_mon << " 日=" << trigger_tm.tm_mday
+                          << " 时=" << trigger_tm.tm_hour << " 分=" << trigger_tm.tm_min 
+                          << " 秒=" << trigger_tm.tm_sec << std::endl;
+                
+                if (result == 6) {
+                    trigger_tm.tm_year -= 1900;
+                    trigger_tm.tm_mon -= 1;
+                    time_t trigger_time_t = mktime(&trigger_tm);
+                    time_t current_time_t = time(0);
+                    
+                    std::cout << "[CheckAllAlerts] trigger_time_t=" << trigger_time_t 
+                              << " current_time_t=" << current_time_t 
+                              << " 差值=" << (current_time_t - trigger_time_t) << "秒" << std::endl;
+                    
+                    if (current_time_t >= trigger_time_t) {
+                        std::cout << "[CheckAllAlerts] *** Time alert triggered! orderId=" << a.orderId << std::endl;
+                        triggered = true;
+                        reason = "Time reached: " + a.trigger_time;
+                    }
                 }
-
-                // 构造唯一 alert_id（可按需替换为更复杂的生成策略）
-                string alertId = "msg_" + to_string(a.orderId) + "_" + to_string((long)now);
-
-                // 构造 JSON 响应 (符合 protocol.md alert_triggered 格式)
-                json j = {
-                    {"type", "alert_triggered"},
-                    {"alert_id", alertId},
-                    {"order_id", to_string(a.orderId)},
-                    {"symbol", a.symbol},
-                    {"trigger_value", price},
-                    {"trigger_time", current_time_str}
-                };
-
-                string responseData = j.dump();
-
-                // 发送响应（忽略返回值或根据需要记录）
-                SendResponse(client, responseData);
+            }
+            
+            // 3. 如果触发，发送通知并更新数据库
+            if (triggered) {
+                std::cout << "[CheckAllAlerts] 准备发送通知 orderId=" << a.orderId << std::endl;
+                
+                try {
+                    string alertId = "msg_" + to_string(a.orderId) + "_" + to_string((long)now);
+                    std::cout << "[CheckAllAlerts] alertId=" << alertId << std::endl;
+                    
+                    json j;
+                    j["type"] = "alert_triggered";
+                    j["alert_id"] = alertId;
+                    j["order_id"] = to_string(a.orderId);
+                    j["symbol"] = a.symbol.empty() ? "TimeAlert" : a.symbol;
+                    j["trigger_value"] = triggerPrice;
+                    j["trigger_time"] = current_time_str;
+                    j["reason"] = reason;
+                    
+                    string responseData = j.dump();
+                    std::cout << "[预警触发] 发送通知: " << responseData << std::endl;
+                    
+                    bool sendOk = SendResponse(client, responseData);
+                    std::cout << "[预警触发] 发送结果: " << (sendOk ? "成功" : "失败") << std::endl;
+                    
+                    if (!sendOk) {
+                        std::cerr << "[预警触发] 发送失败，客户端可能已断开" << std::endl;
+                        return;  // 客户端断开，停止处理
+                    }
+                    
+                    // 更新数据库状态为已触发
+                    std::unique_ptr<sql::Connection> conn(getConn());
+                    if (conn) {
+                        conn->setSchema("cpptestmysql");
+                        std::unique_ptr<sql::PreparedStatement> stmt(
+                            conn->prepareStatement("UPDATE alert_order SET state=1 WHERE orderId=?")
+                        );
+                        stmt->setInt(1, a.orderId);
+                        stmt->executeUpdate();
+                        std::cout << "[预警触发] 已更新数据库状态 orderId=" << a.orderId << std::endl;
+                    }
+                }
+                catch (std::exception& e) {
+                    std::cerr << "[预警触发] 异常: " << e.what() << std::endl;
+                }
+                catch (...) {
+                    std::cerr << "[预警触发] 未知异常" << std::endl;
+                }
             }
         }
     }
 
     static bool SendResponse(ClientContext* client, const std::string& responseData) {
+        if (!client) {
+            std::cerr << "[SendResponse] client 为空" << std::endl;
+            return false;
+        }
+        
         // 检查响应长度
         if (responseData.size() > client->writeMsg.max_body_length) {
             std::cerr << "[响应过长] 超过最大长度: " << client->writeMsg.max_body_length << std::endl;
@@ -283,11 +357,14 @@ private:
         while (totalSent < dataLength) {
             int sent = send(client->clientSocket, data + totalSent, dataLength - totalSent, 0);
             if (sent == SOCKET_ERROR) {
+                int err = WSAGetLastError();
+                std::cerr << "[SendResponse] 发送失败，错误码: " << err << std::endl;
                 return false;
             }
             totalSent += sent;
         }
-
+        
+        std::cout << "[SendResponse] 成功发送 " << totalSent << " 字节" << std::endl;
         return true;
     }
 
@@ -443,9 +520,17 @@ public:
 
     // ---------------------- 设置邮箱 ----------------------
     static json handleSetEmail(FuturesAlertServer& server, const json& request) {
-        std::string reqId = request["request_id"];
-        std::string username = request["username"];
-        std::string email = request["email"];
+        std::string reqId = request.value("request_id", "");
+        // 兼容 username 和 account 两种字段名，优先使用 ThreadLocal 保存的用户名
+        std::string username = ThreadLocalUser::GetUserID();
+        if (username.empty()) {
+            username = request.value("username", request.value("account", ""));
+        }
+        std::string email = request.value("email", "");
+        
+        if (username.empty() || email.empty()) {
+            return server.createErrorResponse(reqId, "set_email", 1003, "缺少 username 或 email 字段");
+        }
 
         try {
             std::unique_ptr<sql::Connection> conn(getConn());
@@ -535,6 +620,12 @@ public:
                 {"order_id", orderId}
                 });
         }
+        catch (sql::SQLException& e) {
+            return server.createErrorResponse(reqId, "add_warning", 1006, std::string("数据库错误: ") + e.what());
+        }
+        catch (std::exception& e) {
+            return server.createErrorResponse(reqId, "add_warning", 1006, std::string("添加预警单失败: ") + e.what());
+        }
         catch (...) {
             return server.createErrorResponse(reqId, "add_warning", 1006, "添加预警单失败");
         }
@@ -542,8 +633,14 @@ public:
 
     // ---------------------- 删除预警单 ----------------------
     static json handleDeleteWarning(FuturesAlertServer& server, const json& request) {
-        std::string reqId = request["request_id"];
-        long orderId = request["order_id"];
+        std::string reqId = request.value("request_id", "");
+        
+        long orderId;
+        try {
+            orderId = parseOrderId(request);
+        } catch (const std::exception& e) {
+            return server.createErrorResponse(reqId, "delete_warning", 1003, e.what());
+        }
 
         try {
             std::unique_ptr<sql::Connection> conn(getConn());
@@ -565,9 +662,16 @@ public:
     // ---------------------- 修改预警单 ----------------------
     // 支持修改 price 或 time 类型的字段（可选字段）
     static json handleModifyWarning(FuturesAlertServer& server, const json& request) {
-        std::string reqId = request.contains("request_id") ? request["request_id"] : "";
-        long orderId = request["order_id"];
-        std::string warningType = request.contains("warning_type") ? request["warning_type"] : "price";
+        std::string reqId = request.value("request_id", "");
+        
+        long orderId;
+        try {
+            orderId = parseOrderId(request);
+        } catch (const std::exception& e) {
+            return server.createErrorResponse(reqId, "modify_warning", 1003, e.what());
+        }
+        
+        std::string warningType = request.value("warning_type", "price");
 
         try {
             std::unique_ptr<sql::Connection> conn(getConn());
@@ -585,7 +689,7 @@ public:
                     double maxPrice = request["max_price"];
                     double minPrice = request["min_price"];
                     std::unique_ptr<sql::PreparedStatement> stmt(
-                        conn->prepareStatement("UPDATE alert_order SET max_price=?, min_price=? WHERE orderId=?")
+                        conn->prepareStatement("UPDATE alert_order SET max_price=?, min_price=?, state=0 WHERE orderId=?")
                     );
                     stmt->setDouble(1, maxPrice);
                     stmt->setDouble(2, minPrice);
@@ -595,7 +699,7 @@ public:
                 else if (hasMax) {
                     double maxPrice = request["max_price"];
                     std::unique_ptr<sql::PreparedStatement> stmt(
-                        conn->prepareStatement("UPDATE alert_order SET max_price=? WHERE orderId=?")
+                        conn->prepareStatement("UPDATE alert_order SET max_price=?, state=0 WHERE orderId=?")
                     );
                     stmt->setDouble(1, maxPrice);
                     stmt->setInt(2, orderId);
@@ -604,7 +708,7 @@ public:
                 else { // hasMin
                     double minPrice = request["min_price"];
                     std::unique_ptr<sql::PreparedStatement> stmt(
-                        conn->prepareStatement("UPDATE alert_order SET min_price=? WHERE orderId=?")
+                        conn->prepareStatement("UPDATE alert_order SET min_price=?, state=0 WHERE orderId=?")
                     );
                     stmt->setDouble(1, minPrice);
                     stmt->setInt(2, orderId);
@@ -617,7 +721,7 @@ public:
                 }
                 std::string triggerTime = request["trigger_time"];
                 std::unique_ptr<sql::PreparedStatement> stmt(
-                    conn->prepareStatement("UPDATE alert_order SET trigger_time=? WHERE orderId=?")
+                    conn->prepareStatement("UPDATE alert_order SET trigger_time=?, state=0 WHERE orderId=?")
                 );
                 stmt->setString(1, triggerTime);
                 stmt->setInt(2, orderId);
@@ -637,8 +741,13 @@ public:
     // ---------------------- 查询预警单 ----------------------
     static json handleQueryWarnings(FuturesAlertServer& server, const json& request) {
 		static const string map1[3] = { "active", "triggered","all" };
-        std::string reqId = request["request_id"];
-        std::string username = request["username"];
+        std::string reqId = request.value("request_id", "");
+        // 兼容 username 和 account 两种字段名
+        std::string username = request.value("username", request.value("account", ""));
+        
+        if (username.empty()) {
+            return server.createErrorResponse(reqId, "query_warnings", 1003, "缺少 username 或 account 字段");
+        }
 
         try {
             std::unique_ptr<sql::Connection> conn(getConn());
@@ -655,13 +764,23 @@ public:
 
             json arr = json::array();
             while (res->next()) {
+                // 根据字段判断预警类型：有 trigger_time 且无 max/min_price 则为时间预警
+                bool hasMaxPrice = !res->isNull("max_price");
+                bool hasMinPrice = !res->isNull("min_price");
+                // sql::SQLString 需要先转为 std::string 才能调用 empty()
+                std::string triggerTimeStr = res->isNull("trigger_time") ? "" : std::string(res->getString("trigger_time"));
+                bool hasTriggerTime = !triggerTimeStr.empty();
+                
+                std::string warningType = (hasTriggerTime && !hasMaxPrice && !hasMinPrice) ? "time" : "price";
+                
                 arr.push_back({
-                    {"order_id", res->getInt("orderId")},
+                    {"order_id", std::to_string(res->getInt("orderId"))},
                     {"symbol", res->getString("symbol")},
+                    {"warning_type", warningType},
                     {"max_price", res->isNull("max_price") ? nullptr : json(res->getDouble("max_price"))},
                     {"min_price", res->isNull("min_price") ? nullptr : json(res->getDouble("min_price"))},
                     {"trigger_time", res->isNull("trigger_time") ? "" : res->getString("trigger_time")},
-                    {"state", map1[res->getInt("state")]}
+                    {"status", map1[res->getInt("state")]}
                     });
             }
 
@@ -676,8 +795,14 @@ public:
 
     // ---------------------- 预警确认 ----------------------
     static json handleAlertAck(FuturesAlertServer& server, const json& request) {
-        std::string reqId = request.contains("request_id") ? request["request_id"] : "";
-        long orderId = request["order_id"];
+        std::string reqId = request.value("request_id", "");
+        
+        long orderId;
+        try {
+            orderId = parseOrderId(request);
+        } catch (const std::exception& e) {
+            return server.createErrorResponse(reqId, "alert_ack", 1003, e.what());
+        }
 
         try {
             std::unique_ptr<sql::Connection> conn(getConn());

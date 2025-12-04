@@ -4,8 +4,9 @@ import QtQuick.Layouts
 
 Popup {
     id: popup
-    width: 300
-    height: 60
+    // 自适应宽度：根据内容调整，但有最小和最大限制
+    width: Math.min(Math.max(contentItem.implicitWidth + 40, 200), parent ? parent.width - 40 : 500)
+    height: Math.max(contentItem.implicitHeight + 30, 60)
     modal: false 
     focus: false 
     dim: false // Disable background dimming
@@ -77,7 +78,9 @@ Popup {
             text: "Message"
             color: getContentColor()
             Layout.fillWidth: true
-            wrapMode: Text.Wrap
+            Layout.maximumWidth: 400
+            wrapMode: Text.WordWrap
+            elide: Text.ElideNone
         }
     }
 }

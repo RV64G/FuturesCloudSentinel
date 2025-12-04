@@ -209,9 +209,20 @@ void Backend::addPriceWarning(const QString &symbolText, double maxPrice, double
 }
 
 void Backend::addTimeWarning(const QString &symbolText, const QString &timeStr) {
-    current_request_type_ = "add_warning";
-    std::string symbol = extractContractCode(symbolText);
-    warningManager_->addTimeWarning(QString::fromStdString(symbol), timeStr);
+    try {
+        qDebug() << "[Backend] addTimeWarning called with symbol:" << symbolText << "time:" << timeStr;
+        current_request_type_ = "add_warning";
+        std::string symbol = extractContractCode(symbolText);
+        qDebug() << "[Backend] Extracted symbol:" << QString::fromStdString(symbol);
+        warningManager_->addTimeWarning(QString::fromStdString(symbol), timeStr);
+        qDebug() << "[Backend] addTimeWarning completed";
+    } catch (const std::exception& e) {
+        qCritical() << "[Backend] addTimeWarning exception:" << e.what();
+        emit showMessage(QString("添加时间预警失败: %1").arg(e.what()));
+    } catch (...) {
+        qCritical() << "[Backend] addTimeWarning unknown exception";
+        emit showMessage("添加时间预警失败: 未知错误");
+    }
 }
 
 void Backend::modifyPriceWarning(const QString &orderId, double maxPrice, double minPrice) {
@@ -268,7 +279,8 @@ void Backend::subscribe(const QString &symbol) {
 void Backend::setEmail(const QString &email) {
     if (client_) {
         current_request_type_ = "set_email";
-        client_->set_email(email.toStdString());
+        QString username = authManager_->currentUsername();
+        client_->set_email(username.toStdString(), email.toStdString());
     }
     // Save locally
     QSettings settings("FuturesCloudSentinel", "AlarmingClient");
@@ -363,11 +375,20 @@ void Backend::onMessageReceived(const nlohmann::json& j) {
         
         std::string symbol = j.value("symbol", "Unknown");
         double triggerValue = j.value("trigger_value", 0.0);
+        std::string reason = j.value("reason", "");
         
-        QString logDetail = QString("[ALERT] %1 (Value: %2)").arg(qMsg).arg(triggerValue);
+        QString logDetail = QString("[ALERT] %1").arg(qMsg);
+        if (!reason.empty()) {
+            logDetail += QString(" - %1").arg(QString::fromStdString(reason));
+        }
 
         emit showMessage(qMsg);
         emit logReceived(QTime::currentTime().toString("HH:mm:ss"), "ALERT", logDetail);
+        
+        // 预警触发后刷新预警列表
+        if (warningManager_) {
+            warningManager_->queryWarnings();
+        }
     }
 }
 
