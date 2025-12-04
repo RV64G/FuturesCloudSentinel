@@ -100,7 +100,7 @@ private:
             handler.login();
             while (!stopFlag->load()) {
 				// 最新行情缓存,之后和数据库对比
-                unordered_map<string, double> m_lastPrices = handler.m_lastPrices;
+                unordered_map<string, double> m_lastPrices = handler.GetLastPrices();
                 
                 try {
                     std::unique_ptr<sql::Connection> conn(getConn());
@@ -443,9 +443,17 @@ public:
 
     // ---------------------- 设置邮箱 ----------------------
     static json handleSetEmail(FuturesAlertServer& server, const json& request) {
-        std::string reqId = request["request_id"];
-        std::string username = request["username"];
-        std::string email = request["email"];
+        std::string reqId = request.value("request_id", "");
+        // 兼容 username 和 account 两种字段名，优先使用 ThreadLocal 保存的用户名
+        std::string username = ThreadLocalUser::GetUserID();
+        if (username.empty()) {
+            username = request.value("username", request.value("account", ""));
+        }
+        std::string email = request.value("email", "");
+        
+        if (username.empty() || email.empty()) {
+            return server.createErrorResponse(reqId, "set_email", 1003, "缺少 username 或 email 字段");
+        }
 
         try {
             std::unique_ptr<sql::Connection> conn(getConn());
@@ -637,8 +645,13 @@ public:
     // ---------------------- 查询预警单 ----------------------
     static json handleQueryWarnings(FuturesAlertServer& server, const json& request) {
 		static const string map1[3] = { "active", "triggered","all" };
-        std::string reqId = request["request_id"];
-        std::string username = request["username"];
+        std::string reqId = request.value("request_id", "");
+        // 兼容 username 和 account 两种字段名
+        std::string username = request.value("username", request.value("account", ""));
+        
+        if (username.empty()) {
+            return server.createErrorResponse(reqId, "query_warnings", 1003, "缺少 username 或 account 字段");
+        }
 
         try {
             std::unique_ptr<sql::Connection> conn(getConn());
@@ -656,12 +669,12 @@ public:
             json arr = json::array();
             while (res->next()) {
                 arr.push_back({
-                    {"order_id", res->getInt("orderId")},
+                    {"order_id", std::to_string(res->getInt("orderId"))},
                     {"symbol", res->getString("symbol")},
                     {"max_price", res->isNull("max_price") ? nullptr : json(res->getDouble("max_price"))},
                     {"min_price", res->isNull("min_price") ? nullptr : json(res->getDouble("min_price"))},
                     {"trigger_time", res->isNull("trigger_time") ? "" : res->getString("trigger_time")},
-                    {"state", map1[res->getInt("state")]}
+                    {"status", map1[res->getInt("state")]}
                     });
             }
 

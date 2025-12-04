@@ -136,9 +136,10 @@ public:
 
     /**
      * @brief 设置接收邮箱
+     * @param username 用户名
      * @param email 邮箱地址
      */
-    void set_email(const std::string& email);
+    void set_email(const std::string& username, const std::string& email);
 
     /**
      * @brief 添加价格预警

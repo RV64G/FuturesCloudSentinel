@@ -99,10 +99,11 @@ void FuturesClient::login(const std::string& username, const std::string& passwo
     send_json(j);
 }
 
-void FuturesClient::set_email(const std::string& email) {
+void FuturesClient::set_email(const std::string& username, const std::string& email) {
     json j;
     j["type"] = "set_email";
     j["request_id"] = generate_request_id();
+    j["username"] = username;
     j["email"] = email;
     send_json(j);
 }

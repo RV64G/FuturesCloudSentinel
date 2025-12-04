@@ -268,7 +268,8 @@ void Backend::subscribe(const QString &symbol) {
 void Backend::setEmail(const QString &email) {
     if (client_) {
         current_request_type_ = "set_email";
-        client_->set_email(email.toStdString());
+        QString username = authManager_->currentUsername();
+        client_->set_email(username.toStdString(), email.toStdString());
     }
     // Save locally
     QSettings settings("FuturesCloudSentinel", "AlarmingClient");

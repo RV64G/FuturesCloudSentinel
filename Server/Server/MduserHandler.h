@@ -58,20 +58,10 @@ public:
 // ------------------------- DB 连接 -------------------------
 static sql::Connection* GetConn()
 {
-    try {
-        sql::Driver* driver = get_driver_instance();
-        sql::Connection* conn = driver->connect("tcp://127.0.0.1:3306", "root", "123456");
-        conn->setSchema("cpptestmysql");
-        printf("[DB] 数据库连接成功\n");
-        fflush(stdout);
-        return conn;
-    }
-    catch (sql::SQLException& e) {
-        printf("[DB ERROR] 连接失败: %s (错误码: %d, SQLState: %s)\n", 
-               e.what(), e.getErrorCode(), e.getSQLState().c_str());
-        fflush(stdout);
-        throw;
-    }
+    sql::Driver* driver = get_driver_instance();
+    sql::Connection* conn = driver->connect("tcp://127.0.0.1:3306", "root", "123456");
+    conn->setSchema("cpptestmysql");
+    return conn;
 }
 
 // ------------------------- 预警结构体 -------------------------
@@ -116,21 +106,18 @@ private:
     atomic<bool> m_isLoggedIn{ false };
     int m_reqId{ 0 };
 
-    // 私有构造函数，用于单例模式
+public:
+
+    // ===================== 单例模式 =====================
+    static CMduserHandler& GetHandler()
+    {
+        static CMduserHandler instance;
+        return instance;
+    }
+
     CMduserHandler()
     {
         m_notifier = make_shared<ConsoleNotifier>();
-    }
-
-public:
-    // 禁止拷贝和移动
-    CMduserHandler(const CMduserHandler&) = delete;
-    CMduserHandler& operator=(const CMduserHandler&) = delete;
-
-    // 单例获取方法
-    static CMduserHandler& GetHandler() {
-        static CMduserHandler instance;
-        return instance;
     }
 
     ~CMduserHandler()
@@ -142,15 +129,16 @@ public:
         }
     }
 
-    // 获取最新价格缓存（线程安全）
-    unordered_map<string, double> getLastPrices() {
-        lock_guard<mutex> lk(m_priceMutex);
-        return m_lastPrices;
-    }
-
     void SetNotifier(shared_ptr<INotifier> n)
     {
         m_notifier = n;
+    }
+
+    // ===================== 获取最新行情缓存 =====================
+    unordered_map<string, double> GetLastPrices()
+    {
+        lock_guard<mutex> lk(m_priceMutex);
+        return m_lastPrices;
     }
 
     // =====================================================

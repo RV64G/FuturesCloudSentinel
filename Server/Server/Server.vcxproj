@@ -111,6 +111,11 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>mysqlcppconn.lib;mysqlcppconn10.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y "$(ProjectDir)..\..\AlarmingClient\ClientUI\CTP\bin\thostmduserapi_se.dll" "$(OutDir)"
+copy /Y "$(ProjectDir)..\..\AlarmingClient\ClientUI\CTP\bin\thosttraderapi_se.dll" "$(OutDir)"</Command>
+      <Message>Copying CTP DLLs to output directory...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -129,6 +134,11 @@
       <AdditionalLibraryDirectories>C:\Program Files\MySQL\mysql-connector-c++-9.5.0-winx64\lib64\vs14</AdditionalLibraryDirectories>
       <AdditionalDependencies>mysqlcppconn.lib;mysqlcppconnx.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y "$(ProjectDir)..\..\AlarmingClient\ClientUI\CTP\bin\thostmduserapi_se.dll" "$(OutDir)"
+copy /Y "$(ProjectDir)..\..\AlarmingClient\ClientUI\CTP\bin\thosttraderapi_se.dll" "$(OutDir)"</Command>
+      <Message>Copying CTP DLLs to output directory...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="base.cpp" />
