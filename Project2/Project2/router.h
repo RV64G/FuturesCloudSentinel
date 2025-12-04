@@ -47,26 +47,26 @@ public:
             return response.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
         }
         catch (const json::parse_error& e) {
-            // 处理JSON解析错误
+            // 处理JSON解析错误 - error_code 1002
             json errorResp = {
                 {"type", "response"},
                 {"request_id", ""},
                 {"request_type", ""},
-                {"success", false},
-                {"message", "JSON解析错误: " + std::string(e.what())},
-                {"data", json::object()}
+                {"status", 1},
+                {"error_code", 1002},
+                {"data", { {"hint", std::string("JSON解析错误: ") + e.what()} }}
             };
             return errorResp.dump();
         }
         catch (const std::exception& e) {
-            // 处理其他异常
+            // 处理其他异常 - error_code 1001
             json errorResp = {
                 {"type", "response"},
                 {"request_id", ""},
                 {"request_type", ""},
-                {"success", false},
-                {"message", "处理请求时出错: " + std::string(e.what())},
-                {"data", json::object()}
+                {"status", 1},
+                {"error_code", 1001},
+                {"data", { {"hint", std::string("处理请求时出错: ") + e.what()} }}
             };
             return errorResp.dump();
         }

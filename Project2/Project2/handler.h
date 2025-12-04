@@ -33,33 +33,53 @@ private:
     inline static std::unordered_map<std::string, std::shared_ptr<std::atomic<bool>>> userWatchers;
     inline static std::mutex userWatchersMutex;
 
-    // 通用错误响应生成函数
+    // 通用错误响应生成函数 (符合 protocol.md V3.0)
+    json createErrorResponse(const std::string& requestId,
+        const std::string& requestType,
+        int errorCode,
+        const std::string& hint = "") {
+        json resp = {
+            {"type", "response"},
+            {"request_id", requestId},
+            {"request_type", requestType},
+            {"status", 1},
+            {"error_code", errorCode}
+        };
+        if (!hint.empty()) {
+            resp["data"] = { {"hint", hint} };
+        }
+        return resp;
+    }
+
+    // 旧版兼容：接收 message 参数自动转换为 error_code
     json createErrorResponse(const std::string& requestId,
         const std::string& requestType,
         const std::string& errorMsg) {
-        return {
-            {"type", "response"},
-            {"request_id", requestId},
-            {"request_type", requestType},
-            {"success", false},
-            {"message", errorMsg},
-            {"data", json::object()}
-        };
+        // 根据消息推断错误码
+        int code = 1001; // 默认未知错误
+        if (errorMsg.find("用户名可能已存在") != std::string::npos) code = 2003;
+        else if (errorMsg.find("用户名或密码错误") != std::string::npos) code = 2002;
+        else if (errorMsg.find("数据库") != std::string::npos) code = 1006;
+        else if (errorMsg.find("缺少") != std::string::npos) code = 1003;
+        else if (errorMsg.find("不支持") != std::string::npos) code = 1004;
+        return createErrorResponse(requestId, requestType, code, errorMsg);
     }
 
-    // 通用成功响应生成函数
+    // 通用成功响应生成函数 (符合 protocol.md V3.0)
     json createSuccessResponse(const std::string& requestId,
         const std::string& requestType,
-        const json& data = json::object(),
-        const std::string& msg = "操作成功") {
-        return {
+        const json& data = json::object()) {
+        json resp = {
             {"type", "response"},
             {"request_id", requestId},
             {"request_type", requestType},
-            {"success", true},
-            {"message", msg},
-            {"data", data}
+            {"status", 0},
+            {"error_code", 0}
         };
+        if (!data.empty()) {
+            resp["data"] = data;
+        }
+        return resp;
     }
 
     // 启动用户守护线程（token 唯一标识），线程生命周期由客户端连接控制：
@@ -225,15 +245,14 @@ private:
                 // 构造唯一 alert_id（可按需替换为更复杂的生成策略）
                 string alertId = "msg_" + to_string(a.orderId) + "_" + to_string((long)now);
 
-                // 构造 JSON 响应
+                // 构造 JSON 响应 (符合 protocol.md alert_triggered 格式)
                 json j = {
                     {"type", "alert_triggered"},
                     {"alert_id", alertId},
                     {"order_id", to_string(a.orderId)},
                     {"symbol", a.symbol},
                     {"trigger_value", price},
-                    {"trigger_time", current_time_str},
-                    {"message", message}
+                    {"trigger_time", current_time_str}
                 };
 
                 string responseData = j.dump();
@@ -379,10 +398,11 @@ public:
             stmt->setString(2, password);
             stmt->execute();
 
-            return server.createSuccessResponse(reqId, "register", { {"message", "注册成功"} });
+            return server.createSuccessResponse(reqId, "register");
         }
         catch (sql::SQLException& e) {
-            return server.createErrorResponse(reqId, "register", "注册失败: 用户名可能已存在");
+            // 用户名已存在 - 使用 error_code 2003
+            return server.createErrorResponse(reqId, "register", 2003, "用户名已存在");
         }
     }
 
@@ -412,10 +432,12 @@ public:
 				ThreadLocalUser::SetUserToken(token);
                 return server.createSuccessResponse(reqId, "login");
             }
-            return server.createErrorResponse(reqId, "login", "用户名或密码错误");
+            // 用户名或密码错误 - 使用 error_code 2002
+            return server.createErrorResponse(reqId, "login", 2002, "用户名或密码错误");
         }
         catch (sql::SQLException& e) {
-            return server.createErrorResponse(reqId, "login", "数据库错误");
+            // 数据库错误 - 使用 error_code 1006
+            return server.createErrorResponse(reqId, "login", 1006, e.what());
         }
     }
 
@@ -439,7 +461,7 @@ public:
             return server.createSuccessResponse(reqId, "set_email");
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "set_email", "设置邮箱失败");
+            return server.createErrorResponse(reqId, "set_email", 1006, "设置邮箱失败");
         }
     }
 
@@ -452,7 +474,7 @@ public:
         std::string warningType = request.contains("warning_type") ? request["warning_type"] : "price";
 
         if (username.empty() || symbol.empty()) {
-            return server.createErrorResponse(reqId, "add_warning", "缺少 account 或 symbol 字段");
+            return server.createErrorResponse(reqId, "add_warning", 1003, "缺少 account 或 symbol 字段");
         }
 
         try {
@@ -461,7 +483,7 @@ public:
 
             if (warningType == "price") {
                 if (!request.contains("max_price") || !request.contains("min_price")) {
-                    return server.createErrorResponse(reqId, "add_warning", "价格预警缺少 max_price 或 min_price");
+                    return server.createErrorResponse(reqId, "add_warning", 1003, "价格预警缺少 max_price 或 min_price");
                 }
                 double maxPrice = request["max_price"];
                 double minPrice = request["min_price"];
@@ -481,7 +503,7 @@ public:
             }
             else if (warningType == "time") {
                 if (!request.contains("trigger_time")) {
-                    return server.createErrorResponse(reqId, "add_warning", "时间预警缺少 trigger_time");
+                    return server.createErrorResponse(reqId, "add_warning", 1003, "时间预警缺少 trigger_time");
                 }
                 std::string triggerTime = request["trigger_time"];
 
@@ -498,7 +520,7 @@ public:
                 stmt->execute();
             }
             else {
-                return server.createErrorResponse(reqId, "add_warning", "未知的 warning_type: " + warningType);
+                return server.createErrorResponse(reqId, "add_warning", 1004, "未知的 warning_type: " + warningType);
             }
 
             // 获取刚插入的ID
@@ -514,7 +536,7 @@ public:
                 });
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "add_warning", "添加预警单失败");
+            return server.createErrorResponse(reqId, "add_warning", 1006, "添加预警单失败");
         }
     }
 
@@ -536,7 +558,7 @@ public:
             return server.createSuccessResponse(reqId, "delete_warning");
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "delete_warning", "删除失败");
+            return server.createErrorResponse(reqId, "delete_warning", 3001, "删除失败");
         }
     }
 
@@ -556,7 +578,7 @@ public:
                 bool hasMin = request.contains("min_price");
 
                 if (!hasMax && !hasMin) {
-                    return server.createErrorResponse(reqId, "modify_warning", "价格预警未提供可修改的字段");
+                    return server.createErrorResponse(reqId, "modify_warning", 1003, "价格预警未提供可修改的字段");
                 }
 
                 if (hasMax && hasMin) {
@@ -591,7 +613,7 @@ public:
             }
             else if (warningType == "time") {
                 if (!request.contains("trigger_time")) {
-                    return server.createErrorResponse(reqId, "modify_warning", "时间预警未提供 trigger_time");
+                    return server.createErrorResponse(reqId, "modify_warning", 1003, "时间预警未提供 trigger_time");
                 }
                 std::string triggerTime = request["trigger_time"];
                 std::unique_ptr<sql::PreparedStatement> stmt(
@@ -602,13 +624,13 @@ public:
                 stmt->execute();
             }
             else {
-                return server.createErrorResponse(reqId, "modify_warning", "未知的 warning_type: " + warningType);
+                return server.createErrorResponse(reqId, "modify_warning", 1004, "未知的 warning_type: " + warningType);
             }
 
             return server.createSuccessResponse(reqId, "modify_warning");
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "modify_warning", "修改失败");
+            return server.createErrorResponse(reqId, "modify_warning", 1006, "修改失败");
         }
     }
 
@@ -648,7 +670,7 @@ public:
                 });
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "query_warnings", "查询失败");
+            return server.createErrorResponse(reqId, "query_warnings", 1006, "查询失败");
         }
     }
 
@@ -670,7 +692,7 @@ public:
             return server.createSuccessResponse(reqId, "alert_ack");
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "alert_ack", "确认失败");
+            return server.createErrorResponse(reqId, "alert_ack", 1006, "确认失败");
         }
     }
 

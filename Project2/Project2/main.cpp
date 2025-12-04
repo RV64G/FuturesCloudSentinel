@@ -17,35 +17,35 @@
 
 
 int main() {
-    ////¿ªÆôºóÌ¨Ïß³Ì£¬¼àÌýÐÐÇé
+    ////ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨ï¿½ß³Ì£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     //HANDLE hThread = CreateThread(
-    //    NULL,               // Ä¬ÈÏ°²È«ÊôÐÔ
-    //    0,                  // Ä¬ÈÏÕ»´óÐ¡
-    //    MyThreadProc,       // Ïß³Ìº¯ÊýÖ¸Õë
-    //    NULL,               // ÎÞ²ÎÊý´«µÝ£¨lpParam = NULL£©
-    //    0,                  // Á¢¼´Æô¶¯Ïß³Ì
-    //    NULL                // ²»ÐèÒªÏß³Ì ID
+    //    NULL,               // Ä¬ï¿½Ï°ï¿½È«ï¿½ï¿½ï¿½ï¿½
+    //    0,                  // Ä¬ï¿½ï¿½Õ»ï¿½ï¿½Ð¡
+    //    MyThreadProc,       // ï¿½ß³Ìºï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
+    //    NULL,               // ï¿½Þ²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½lpParam = NULLï¿½ï¿½
+    //    0,                  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³ï¿½
+    //    NULL                // ï¿½ï¿½ï¿½ï¿½Òªï¿½ß³ï¿½ ID
     //);
 
     StartMarketService();
 
 
-    // ³õÊ¼»¯Winsock
+    // ï¿½ï¿½Ê¼ï¿½ï¿½Winsock
     if (!InitWinsock()) {
         return 1;
     }
 
-    // ÉèÖÃ¿ØÖÆÌ¨¿ØÖÆ handler
+    // ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ handler
     if (!SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE)) {
-        std::cerr << "[ÉèÖÃ¿ØÖÆÌ¨¿ØÖÆÊ§°Ü] ´íÎóÂë: " << GetLastError() << std::endl;
+        std::cerr << "[ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: " << GetLastError() << std::endl;
         WSACleanup();
         return 1;
     }
 
-    // ´´½¨Â·ÓÉÊµÀý
+    // ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½Êµï¿½ï¿½
     RequestRouter router;
 
-    // ´´½¨²¢Æô¶¯Ïß³Ì³Ø
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³Ì³ï¿½
     ThreadPool threadPool(&router);
     g_pThreadPool = &threadPool;
     if (!threadPool.Start()) {
@@ -53,7 +53,7 @@ int main() {
         return 1;
     }
 
-    // ´´½¨¼àÌýSocket
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Socket
     g_listenSocket = CreateListenSocket();
     if (g_listenSocket == INVALID_SOCKET) {
         threadPool.Stop();
@@ -61,7 +61,7 @@ int main() {
         return 1;
     }
 
-    // ½ÓÊÜ¿Í»§¶ËÁ¬½Ó
+    // ï¿½ï¿½ï¿½Ü¿Í»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     while (!g_shouldQuit) {
         sockaddr_in clientAddr;
         int clientAddrLen = sizeof(clientAddr);
@@ -69,24 +69,25 @@ int main() {
 
         if (clientSocket == INVALID_SOCKET) {
             if (g_shouldQuit) break;
-            std::cerr << "[½ÓÊÜÁ¬½ÓÊ§°Ü] ´íÎóÂë: " << WSAGetLastError() << std::endl;
+            std::cerr << "[æŽ¥å—è¿žæŽ¥å¤±è´¥] é”™è¯¯ç : " << WSAGetLastError() << std::endl;
             continue;
         }
 
-        // ÉèÖÃ·Ç×èÈûÄ£Ê½
-        u_long mode = 1;
-        ioctlsocket(clientSocket, FIONBIO, &mode);
+        // æ³¨æ„ï¼šä½¿ç”¨é˜»å¡žæ¨¡å¼ï¼Œä¸Ž HandleClient ä¸­çš„åŒæ­¥ recv é…åˆ
+        // å¦‚æžœéœ€è¦éžé˜»å¡žï¼Œè¯·ä¿®æ”¹ HandleClient ä½¿ç”¨ select/poll æˆ–å¼‚æ­¥ IO
+        // u_long mode = 1;
+        // ioctlsocket(clientSocket, FIONBIO, &mode);
 
-        // Ìí¼ÓÈÎÎñµ½Ïß³Ì³Ø
+        // æ·»åŠ ä»»åŠ¡åˆ°çº¿ç¨‹æ± 
         ClientContext* client = new ClientContext(clientSocket, clientAddr);
         if (!threadPool.AddTask(client)) {
             delete client;
             closesocket(clientSocket);
-            std::cerr << "[Ìí¼ÓÈÎÎñÊ§°Ü] ÎÞ·¨´¦ÀíÐÂÁ¬½Ó" << std::endl;
+            std::cerr << "[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½] ï¿½Þ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" << std::endl;
         }
     }
 
-    // ÇåÀí×ÊÔ´
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´
     threadPool.Stop();
     if (g_listenSocket != INVALID_SOCKET) {
         closesocket(g_listenSocket);
@@ -107,19 +108,19 @@ int main() {
 
 
 
-    ////1¡¢½¨Á¢Êý¾Ý¿âÁ¬½Ó£¬²¢´´½¨·þÎñÆ÷
-    //std::string sql1 = "select * from user where id = 1";//sql1ÓÃÓÚ´´½¨testmysqlÊý¾Ý¿â
+    ////1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½ï¿½ï¿½Ó£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    //std::string sql1 = "select * from user where id = 1";//sql1ï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½testmysqlï¿½ï¿½ï¿½Ý¿ï¿½
     //SetConsoleOutputCP(CP_UTF8);
     //try
     //{
-    //    // ×¢²áMySQLÇý¶¯³ÌÐò
+    //    // ×¢ï¿½ï¿½MySQLï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     //    sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
     //    sql::Connection* con;
     //    sql::Statement* stmt;
     //    sql::ResultSet* res;
-    //    //»ñÈ¡Êý¾Ý¿âÁ¬½Ó¶ÔÏó
+    //    //ï¿½ï¿½È¡ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½ï¿½ï¿½Ó¶ï¿½ï¿½ï¿½
     //    con = driver->connect("tcp://localhost:3306", "root", "123456");
-    //    //»ñÈ¡Ö´ÐÐÓï¾ä¶ÔÏó
+    //    //ï¿½ï¿½È¡Ö´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     //    stmt = con->createStatement();
     //    stmt->execute(sql1);
     //    delete stmt;
@@ -127,16 +128,16 @@ int main() {
     //}
     //catch (sql::SQLException& sqle)
     //{
-    //    std::cout << "Êý¾Ý¿âÁ¬½Ó³ö´íÀ²£¬ÄãÊÇ²»ÊÇÃÜÂë»òÕßÓÃ»§ÃûÐ´´íÁË?»òÕßÄãµÄÊý¾Ý¿âÃû³Æ»òÕß±íÃû³ÆÐ´´íÁË?" << std::endl;
+    //    std::cout << "ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½?ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½ï¿½ï¿½Æ»ï¿½ï¿½ß±ï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½?" << std::endl;
     //}
 
-    //2¡¢´´½¨·þÎñÆ÷£¬¿Í»§¶ËÇëÇó£¬ÎªÃ¿¸öÇëÇó·ÖÅäÒ»¸öÏß³Ì£¨Ïß³Ì³Ø£©
+    //2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÎªÃ¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ß³Ì£ï¿½ï¿½ß³Ì³Ø£ï¿½
     
     while (1) {
-        //ËÀÑ­»·¼àÌý¿Í»§¶ËÇëÇó£¬
+        //ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
-        //Îª½¨Á¢Á¬½ÓµÄ¿Í»§¶Ë·ÖÅäÒ»¸öÏß³Ì£¬²¢½øÈë´¦Àí¿Í»§¶ËÇëÇóµÄÂß¼­
+        //Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÓµÄ¿Í»ï¿½ï¿½Ë·ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ß³Ì£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë´¦ï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½
 
     }
 
@@ -144,7 +145,7 @@ int main() {
 
     
     if (!SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE)) {
-        std::cerr << "[ÉèÖÃÐÅºÅ´¦ÀíÊ§°Ü] ´íÎóÂë: " << GetLastError() << std::endl;
+        std::cerr << "[ï¿½ï¿½ï¿½ï¿½ï¿½ÅºÅ´ï¿½ï¿½ï¿½Ê§ï¿½ï¿½] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: " << GetLastError() << std::endl;
         return 1;
     }
 
@@ -173,7 +174,7 @@ int main() {
         SOCKET clientSocket = accept(g_listenSocket, (sockaddr*)&clientAddr, &clientAddrLen);
         if (clientSocket == INVALID_SOCKET) {
             if (g_shouldQuit) break;
-            std::cerr << "[½ÓÊÜÁ¬½ÓÊ§°Ü] ´íÎóÂë: " << WSAGetLastError() << std::endl;
+            std::cerr << "[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: " << WSAGetLastError() << std::endl;
             continue;
         }
 
@@ -184,7 +185,7 @@ int main() {
         if (!threadPool.AddTask(client)) {
             closesocket(clientSocket);
             delete client;
-            std::cerr << "[ÈÎÎñÌí¼ÓÊ§°Ü] ¿Í»§¶ËÁ¬½Ó±»¾Ü¾ø" << std::endl;
+            std::cerr << "[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½] ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó±ï¿½ï¿½Ü¾ï¿½" << std::endl;
         }
     }
 
@@ -192,7 +193,7 @@ int main() {
     threadPool.Stop();
     CleanupWinsock();
 
-    std::cout << "[·þÎñÆ÷Õý³£ÍË³ö]" << std::endl;
+    std::cout << "[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë³ï¿½]" << std::endl;
     return 0;
 }
 */
