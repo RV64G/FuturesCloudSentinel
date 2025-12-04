@@ -423,6 +423,9 @@ FodyWeavers.xsd
 vcpkg/
 vcpkg_installed/
 
+# CTP flow directory (connection cache files)
+*.con
+
 # CTP DLLs exception
 !AlarmingClient/ClientUI/CTP/bin/*.dll
 !AlarmingClient/ClientUI/CTP/lib/*.lib

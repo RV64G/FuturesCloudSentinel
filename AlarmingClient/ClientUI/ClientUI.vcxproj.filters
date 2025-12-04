@@ -31,12 +31,15 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\base\FuturesClient.cpp">
+    <ClCompile Include="QuoteClient.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\base\FuturesClient.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\base\FuturesClient.h">
+    <ClInclude Include="..\base\FuturesClient.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -57,6 +60,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="WarningManager.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="QuoteClient.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

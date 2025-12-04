@@ -19,6 +19,7 @@
     <VcpkgManifestEnabled>true</VcpkgManifestEnabled>
     <VcpkgManifestFile>$(ProjectDir)..\vcpkg.json</VcpkgManifestFile>
     <VcpkgRoot>$(ProjectDir)..\..\vcpkg</VcpkgRoot>
+    <ProjectName>FuturesCloudSentinel</ProjectName>
   </PropertyGroup>
   <Import Project="$(ProjectDir)..\..\vcpkg\scripts\buildsystems\msbuild\vcpkg.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

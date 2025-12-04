@@ -63,8 +63,13 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     
     // Connect to CTP (24h demo server for quotes)
     // 注意: CTP 连接独立于 SIMULATE_SERVER，因为行情数据对测试有帮助
-    quoteClient_->connectToCtp("tcp://182.254.243.31:40011");
-    qDebug() << "[Backend] Connecting to CTP demo server for market data";
+    // SimNow 7x24 行情前置 (与 Project2 使用相同地址)
+    // 延迟 1 秒启动，等待 Qt 事件循环完全初始化
+    QTimer::singleShot(1000, this, [this]() {
+        qDebug() << "[Backend] Starting delayed CTP connection...";
+        quoteClient_->connectToCtp("tcp://182.254.243.31:30011");
+    });
+    qDebug() << "[Backend] CTP connection scheduled (delayed 1s)";
 
     // CTP 连接看门狗定时器 (每500ms检查一次)
     ctpWatchdog_ = new QTimer(this);

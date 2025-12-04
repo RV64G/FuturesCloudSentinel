@@ -27,22 +27,10 @@ void QuoteClient::connectToCtp(const QString& frontAddr)
     }
 
     qDebug() << "[QuoteClient] Connecting to CTP:" << frontAddr;
+    qDebug() << "[QuoteClient] CTP API Version:" << CThostFtdcMdApi::GetApiVersion();
 
-    // 使用应用程序目录下的 flow 文件夹
-    QString appDir = QCoreApplication::applicationDirPath();
-    QString flowPath = appDir + "/flow/";
-    QDir dir(flowPath);
-    if (!dir.exists()) {
-        if (!dir.mkpath(".")) {
-            qCritical() << "[QuoteClient] Failed to create flow directory:" << flowPath;
-            return;
-        }
-    }
-    
-    qDebug() << "[QuoteClient] Flow path:" << flowPath;
-
-    // Create API instance
-    m_api = CThostFtdcMdApi::CreateFtdcMdApi(flowPath.toStdString().c_str());
+    // Create API instance (不使用 flow 目录，与 Project2 保持一致)
+    m_api = CThostFtdcMdApi::CreateFtdcMdApi();
     
     if (!m_api) {
         qCritical() << "[QuoteClient] Failed to create CTP API instance!";
@@ -59,6 +47,7 @@ void QuoteClient::connectToCtp(const QString& frontAddr)
     qDebug() << "[QuoteClient] Calling Init()...";
     m_api->Init();
     qDebug() << "[QuoteClient] Init() called, waiting for connection callback...";
+    qDebug() << "[QuoteClient] API GetTradingDay:" << (m_api->GetTradingDay() ? m_api->GetTradingDay() : "null");
 }
 
 void QuoteClient::subscribe(const QStringList& instruments)

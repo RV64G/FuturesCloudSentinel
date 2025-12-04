@@ -8,7 +8,8 @@
 #include <boost/asio.hpp>
 #include <nlohmann/json.hpp>
 
-using boost::asio::ip::tcp;
+using boost::asio::ip::
+tcp;
 using json = nlohmann::json;
 
 // ============================================================================
@@ -36,7 +37,9 @@ using json = nlohmann::json;
 // #define SIMULATE_SERVER
 
 // Legacy macro support (保持向后兼容)
-#define GLOBAL_DEBUG_MODE
+//#define GLOBAL_DEBUG_MODE
+//#define DEBUG_UI
+//#define SIMULATE_SERVER
 #ifdef GLOBAL_DEBUG_MODE
     #define DEBUG_UI
     #define SIMULATE_SERVER
