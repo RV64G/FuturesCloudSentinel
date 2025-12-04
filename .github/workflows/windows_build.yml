@@ -2,13 +2,14 @@ name: Windows Build
 
 on:
   push:
-    branches: [ "feature/GUI", "main" ]
+    branches: ["bugfix/UI", "main", "feature/GUI"]
   pull_request:
-    branches: [ "feature/GUI", "main" ]
+    branches: ["main"]
 
 jobs:
-  build:
+  build-client:
     runs-on: windows-latest
+    name: Build Client
 
     steps:
     - uses: actions/checkout@v4
@@ -47,8 +48,49 @@ jobs:
         $qtBin = "${{ github.workspace }}/qt/Qt/6.8.0/msvc2022_64/bin"
         & "$qtBin/windeployqt.exe" --qmldir ../../ClientUI/Views ClientUI.exe
 
-    - name: Upload Artifact
+    - name: Upload Client Artifact
       uses: actions/upload-artifact@v4
       with:
         name: FuturesCloudSentinel-Client
         path: AlarmingClient/build/Release/
+
+  build-server:
+    runs-on: windows-latest
+    name: Build Server
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: 'be563dfee81e88f9f6cf68839dff5b671b5cfb37'
+        vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+        runVcpkgInstall: false
+
+    - name: Install MySQL Connector via vcpkg
+      run: |
+        ./vcpkg/vcpkg install mysql-connector-cpp:x64-windows
+
+    - name: Build Server
+      working-directory: Server
+      run: |
+        msbuild Server/Server.vcxproj /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="${{ github.workspace }}/Server/" /t:Build
+
+    - name: Collect Server Artifacts
+      run: |
+        New-Item -ItemType Directory -Force -Path "artifacts/Server"
+        # 复制可执行文件
+        Copy-Item "Server/x64/Release/*.exe" "artifacts/Server/" -ErrorAction SilentlyContinue
+        # 复制所有 DLL（编译后事件已经复制到 Release 目录）
+        Copy-Item "Server/x64/Release/*.dll" "artifacts/Server/" -ErrorAction SilentlyContinue
+
+    - name: Upload Server Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: FuturesCloudSentinel-Server
+        path: artifacts/Server/
+
