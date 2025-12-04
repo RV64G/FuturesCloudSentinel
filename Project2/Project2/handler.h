@@ -1,5 +1,5 @@
-#pragma once
-//ÓÃÓÚÂ·ÓÉÇëÇóµ½²»Í¬º¯Êı
+ï»¿#pragma once
+//ç”¨äºè·¯ç”±è¯·æ±‚åˆ°ä¸åŒå‡½æ•°
 #ifndef HANDLER_H
 #define HANDLER_H
 
@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <string>
 #include <functional>
-#include "nlohmann/json.hpp"  // Ê¹ÓÃnlohmann/json¿â´¦ÀíJSON
+#include "nlohmann/json.hpp"  // ä½¿ç”¨nlohmann/jsonåº“å¤„ç†JSON
 #include <mysql/jdbc.h>
 #include "thread_local.h"
 #include "MduserHandler.h"
@@ -20,20 +20,20 @@ using json = nlohmann::json;
 #include <mutex>
 #include <chrono>
 
-// Ç°ÖÃÉùÃ÷´¦Àíº¯Êı
+// å‰ç½®å£°æ˜å¤„ç†å‡½æ•°
 class FuturesAlertServer;
 using RequestHandler = std::function<json(FuturesAlertServer&, const json&)>;
 
 class FuturesAlertServer {
 private:
-    // Â·ÓÉÓ³Éä±í£ºÇëÇóÀàĞÍ -> ´¦Àíº¯Êı
+    // è·¯ç”±æ˜ å°„è¡¨ï¼šè¯·æ±‚ç±»å‹ -> å¤„ç†å‡½æ•°
     std::unordered_map<std::string, RequestHandler> requestHandlers;
 
-    // ÓÃÓÚÃ¿¸öÒÑµÇÂ¼ÓÃ»§µÄÊØ»¤Ïß³Ì¿ØÖÆ£¨token -> stop flag£©
+    // ç”¨äºæ¯ä¸ªå·²ç™»å½•ç”¨æˆ·çš„å®ˆæŠ¤çº¿ç¨‹æ§åˆ¶ï¼ˆtoken -> stop flagï¼‰
     inline static std::unordered_map<std::string, std::shared_ptr<std::atomic<bool>>> userWatchers;
     inline static std::mutex userWatchersMutex;
 
-    // Í¨ÓÃ´íÎóÏìÓ¦Éú³Éº¯Êı
+    // é€šç”¨é”™è¯¯å“åº”ç”Ÿæˆå‡½æ•°
     json createErrorResponse(const std::string& requestId,
         const std::string& requestType,
         const std::string& errorMsg) {
@@ -47,11 +47,11 @@ private:
         };
     }
 
-    // Í¨ÓÃ³É¹¦ÏìÓ¦Éú³Éº¯Êı
+    // é€šç”¨æˆåŠŸå“åº”ç”Ÿæˆå‡½æ•°
     json createSuccessResponse(const std::string& requestId,
         const std::string& requestType,
         const json& data = json::object(),
-        const std::string& msg = "²Ù×÷³É¹¦") {
+        const std::string& msg = "æ“ä½œæˆåŠŸ") {
         return {
             {"type", "response"},
             {"request_id", requestId},
@@ -62,24 +62,24 @@ private:
         };
     }
 
-    // Æô¶¯ÓÃ»§ÊØ»¤Ïß³Ì£¨token Î¨Ò»±êÊ¶£©£¬Ïß³ÌÉúÃüÖÜÆÚÓÉ¿Í»§¶ËÁ¬½Ó¿ØÖÆ£º
-    // ÔÚ¿Í»§¶Ë¶Ï¿ªÊ±Ó¦µ÷ÓÃ stopUserWatcher(token) À´½áÊøÊØ»¤Ïß³Ì¡£
+    // å¯åŠ¨ç”¨æˆ·å®ˆæŠ¤çº¿ç¨‹ï¼ˆtoken å”¯ä¸€æ ‡è¯†ï¼‰ï¼Œçº¿ç¨‹ç”Ÿå‘½å‘¨æœŸç”±å®¢æˆ·ç«¯è¿æ¥æ§åˆ¶ï¼š
+    // åœ¨å®¢æˆ·ç«¯æ–­å¼€æ—¶åº”è°ƒç”¨ stopUserWatcher(token) æ¥ç»“æŸå®ˆæŠ¤çº¿ç¨‹ã€‚
     static void startUserWatcher(const std::string& token, const std::string& username) {
         std::lock_guard<std::mutex> lk(userWatchersMutex);
-        if (userWatchers.find(token) != userWatchers.end()) return; // ÒÑÓĞÊØ»¤Ïß³Ì
+        if (userWatchers.find(token) != userWatchers.end()) return; // å·²æœ‰å®ˆæŠ¤çº¿ç¨‹
 
         auto stopFlag = std::make_shared<std::atomic<bool>>(false);
         userWatchers[token] = stopFlag;
 
-        // Æô¶¯ºóÌ¨Ïß³ÌÂÖÑ¯Êı¾İ¿â
+        // å¯åŠ¨åå°çº¿ç¨‹è½®è¯¢æ•°æ®åº“
         std::thread([token, username, stopFlag]() {
-            // ´´½¨ĞĞÇé´¦ÀíÆ÷ÊµÀı
+            // åˆ›å»ºè¡Œæƒ…å¤„ç†å™¨å®ä¾‹
             CMduserHandler& handler = CMduserHandler::GetHandler();
-            // Á¬½Ó²¢µÇÂ¼ĞĞÇé·şÎñÆ÷
+            // è¿æ¥å¹¶ç™»å½•è¡Œæƒ…æœåŠ¡å™¨
             handler.connect();
             handler.login();
             while (!stopFlag->load()) {
-				// ×îĞÂĞĞÇé»º´æ,Ö®ºóºÍÊı¾İ¿â¶Ô±È
+				// æœ€æ–°è¡Œæƒ…ç¼“å­˜,ä¹‹åå’Œæ•°æ®åº“å¯¹æ¯”
                 unordered_map<string, double> m_lastPrices = handler.m_lastPrices;
                 
                 try {
@@ -90,13 +90,13 @@ private:
                             conn->prepareStatement("SELECT orderId, symbol, max_price, min_price, trigger_time, state FROM alert_order WHERE account=? AND state=0")
                         );
                         stmt->setString(1, username);
-                        //²éÑ¯ÁËÎ´´¦ÀíµÄÔ¤¾¯µ¥
+                        //æŸ¥è¯¢äº†æœªå¤„ç†çš„é¢„è­¦å•
                         std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
                         
-                        // ¹Ø¼üĞŞÕı£ºÊ¹ÓÃ std::move(res) ´«µİ unique_ptr ËùÓĞÈ¨
+                        // å…³é”®ä¿®æ­£ï¼šä½¿ç”¨ std::move(res) ä¼ é€’ unique_ptr æ‰€æœ‰æƒ
                         //std::vector<std::string> constra = LoadContracts1(std::move(res));
                         std::vector<AlertOrder> order = LoadAlertOrders(std::move(res));
-                        //¶Ô±È
+                        //å¯¹æ¯”
                         if (order.size() > 0) {
                             for (auto it = m_lastPrices.begin(); it != m_lastPrices.end(); ++it) {
                             
@@ -109,16 +109,16 @@ private:
                     }
                 }
                 catch (sql::SQLException& e) {
-                    std::cerr << "[ÊØ»¤Ïß³Ì] Êı¾İ¿âÒì³£: " << e.what() << std::endl;
+                    std::cerr << "[å®ˆæŠ¤çº¿ç¨‹] æ•°æ®åº“å¼‚å¸¸: " << e.what() << std::endl;
                 }
                 catch (...) {
-                    // ºöÂÔ
+                    // å¿½ç•¥
                 }
 
                 std::this_thread::sleep_for(std::chrono::seconds(5));
             }
 
-            // Ïß³ÌÍË³öÇ°´ÓÓ³ÉäÖĞÒÆ³ı×ÔÉí
+            // çº¿ç¨‹é€€å‡ºå‰ä»æ˜ å°„ä¸­ç§»é™¤è‡ªèº«
             std::lock_guard<std::mutex> lk2(userWatchersMutex);
             auto it = userWatchers.find(token);
             if (it != userWatchers.end() && it->second == stopFlag) {
@@ -135,7 +135,7 @@ private:
                 AlertOrder a;
                 a.orderId = res->getInt("orderId");
                 a.symbol = res->getString("symbol");
-                // Èç¹ûÊı¾İ¿â×Ö¶Î¿ÉÄÜÎª NULL£¬Ê¹ÓÃ isNull ¼ì²é
+                // å¦‚æœæ•°æ®åº“å­—æ®µå¯èƒ½ä¸º NULLï¼Œä½¿ç”¨ isNull æ£€æŸ¥
                 if (res->isNull("max_price")) a.max_price = 0.0;
                 else a.max_price = res->getDouble("max_price");
                 if (res->isNull("min_price")) a.min_price = 0.0;
@@ -151,7 +151,7 @@ private:
             }
         }
         catch (sql::SQLException& e) {
-            // ¿É¸ù¾İÏîÄ¿ÈÕÖ¾¹æ·¶¼ÇÂ¼´íÎó
+            // å¯æ ¹æ®é¡¹ç›®æ—¥å¿—è§„èŒƒè®°å½•é”™è¯¯
             fflush(stdout);
         }
         return orders;
@@ -160,10 +160,10 @@ private:
     static void CheckAlert(const string& symbol, double price, vector<AlertOrder> alerts)
     {
         
-        // »ñÈ¡µ±Ç°Ê±¼ä - Ê¹ÓÃ°²È«µÄ localtime_s
+        // è·å–å½“å‰æ—¶é—´ - ä½¿ç”¨å®‰å…¨çš„ localtime_s
         time_t now = time(0);
         tm local_tm = { 0 };
-        localtime_s(&local_tm, &now);  // Ê¹ÓÃ localtime_s Ìæ´ú localtime
+        localtime_s(&local_tm, &now);  // ä½¿ç”¨ localtime_s æ›¿ä»£ localtime
         char time_buffer[20];
         strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", &local_tm);
         string current_time_str = string(time_buffer);
@@ -173,42 +173,42 @@ private:
             bool triggered = false;
             string reason;
 
-            // ¼Û¸ñÔ¤¾¯ÅĞ¶Ï
+            // ä»·æ ¼é¢„è­¦åˆ¤æ–­
             if (a.max_price > 0 && price >= a.max_price) {
                 triggered = true;
-                reason = ">= ÉÏÏŞ " + to_string(a.max_price);
+                reason = ">= ä¸Šé™ " + to_string(a.max_price);
             }
             else if (a.min_price > 0 && price <= a.min_price) {
                 triggered = true;
-                message = "ÄúµÄ" + a.symbol + "ºÏÔ¼ÒÑµøÆÆÏÂÏŞ " + to_string(a.min_price) + "£¬µ±Ç°¼Û¸ñ " + to_string(price) + "£¡";
+                message = "æ‚¨çš„" + a.symbol + "åˆçº¦å·²è·Œç ´ä¸‹é™ " + to_string(a.min_price) + "ï¼Œå½“å‰ä»·æ ¼ " + to_string(price) + "ï¼";
             }
 
-            // Ê±¼äÔ¤¾¯ÅĞ¶Ï£¨±£³ÖÔ­ÓĞÂß¼­£©
+            // æ—¶é—´é¢„è­¦åˆ¤æ–­ï¼ˆä¿æŒåŸæœ‰é€»è¾‘ï¼‰
             if (!triggered && !a.trigger_time.empty()) {
                 tm trigger_tm = { 0 };
 
-                // Ê¹ÓÃ sscanf_s Ìæ´ú sscanf
+                // ä½¿ç”¨ sscanf_s æ›¿ä»£ sscanf
                 int result = sscanf_s(a.trigger_time.c_str(), "%d-%d-%d %d:%d:%d",
                     &trigger_tm.tm_year, &trigger_tm.tm_mon, &trigger_tm.tm_mday,
                     &trigger_tm.tm_hour, &trigger_tm.tm_min, &trigger_tm.tm_sec);
 
-                // ¼ì²é½âÎöÊÇ·ñ³É¹¦
-                if (result == 6) {  // ³É¹¦½âÎöÁË6¸ö×Ö¶Î
-                    // ×ª»»Îª±ê×¼ tm ¸ñÊ½
-                    trigger_tm.tm_year -= 1900;  // tm_year ´Ó1900Äê¿ªÊ¼¼ÆÊı
-                    trigger_tm.tm_mon -= 1;      // tm_mon ´Ó0¿ªÊ¼¼ÆÊı
+                // æ£€æŸ¥è§£ææ˜¯å¦æˆåŠŸ
+                if (result == 6) {  // æˆåŠŸè§£æäº†6ä¸ªå­—æ®µ
+                    // è½¬æ¢ä¸ºæ ‡å‡† tm æ ¼å¼
+                    trigger_tm.tm_year -= 1900;  // tm_year ä»1900å¹´å¼€å§‹è®¡æ•°
+                    trigger_tm.tm_mon -= 1;      // tm_mon ä»0å¼€å§‹è®¡æ•°
 
-                    // ¼ÆËãÔ¤¾¯Ê±¼äµÄÇ°Ò»Ìì
+                    // è®¡ç®—é¢„è­¦æ—¶é—´çš„å‰ä¸€å¤©
                     time_t trigger_time_t = mktime(&trigger_tm);
-                    time_t one_day_before = trigger_time_t - 24 * 60 * 60;  // ¼õÈ¥Ò»ÌìµÄÃëÊı
+                    time_t one_day_before = trigger_time_t - 24 * 60 * 60;  // å‡å»ä¸€å¤©çš„ç§’æ•°
 
-                    // »ñÈ¡µ±Ç°Ê±¼ä
+                    // è·å–å½“å‰æ—¶é—´
                     time_t current_time_t = time(0);
 
-                    // ÅĞ¶ÏÊÇ·ñÔÚÇ°Ò»Ìì·¶Î§ÄÚ
+                    // åˆ¤æ–­æ˜¯å¦åœ¨å‰ä¸€å¤©èŒƒå›´å†…
                     if (current_time_t >= one_day_before && current_time_t < trigger_time_t) {
                         triggered = true;
-                        reason = "µ½´ïÔ¤¶¨Ê±¼äÇ°Ò»Ìì " + a.trigger_time;
+                        reason = "åˆ°è¾¾é¢„å®šæ—¶é—´å‰ä¸€å¤© " + a.trigger_time;
                     }
                 }
             }
@@ -218,14 +218,14 @@ private:
                 //SendResponse(ThreadLocalUser::GetClient(), responseData)
                 ClientContext* client = ThreadLocalUser::GetClient();
                 if (!client) {
-                    // ÎŞÓĞĞ§¿Í»§¶ËÉÏÏÂÎÄÔòÌø¹ı·¢ËÍ
+                    // æ— æœ‰æ•ˆå®¢æˆ·ç«¯ä¸Šä¸‹æ–‡åˆ™è·³è¿‡å‘é€
                     continue;
                 }
 
-                // ¹¹ÔìÎ¨Ò» alert_id£¨¿É°´ĞèÌæ»»Îª¸ü¸´ÔÓµÄÉú³É²ßÂÔ£©
+                // æ„é€ å”¯ä¸€ alert_idï¼ˆå¯æŒ‰éœ€æ›¿æ¢ä¸ºæ›´å¤æ‚çš„ç”Ÿæˆç­–ç•¥ï¼‰
                 string alertId = "msg_" + to_string(a.orderId) + "_" + to_string((long)now);
 
-                // ¹¹Ôì JSON ÏìÓ¦
+                // æ„é€  JSON å“åº”
                 json j = {
                     {"type", "alert_triggered"},
                     {"alert_id", alertId},
@@ -238,25 +238,25 @@ private:
 
                 string responseData = j.dump();
 
-                // ·¢ËÍÏìÓ¦£¨ºöÂÔ·µ»ØÖµ»ò¸ù¾İĞèÒª¼ÇÂ¼£©
+                // å‘é€å“åº”ï¼ˆå¿½ç•¥è¿”å›å€¼æˆ–æ ¹æ®éœ€è¦è®°å½•ï¼‰
                 SendResponse(client, responseData);
             }
         }
     }
 
     static bool SendResponse(ClientContext* client, const std::string& responseData) {
-        // ¼ì²éÏìÓ¦³¤¶È
+        // æ£€æŸ¥å“åº”é•¿åº¦
         if (responseData.size() > client->writeMsg.max_body_length) {
-            std::cerr << "[ÏìÓ¦¹ı³¤] ³¬¹ı×î´ó³¤¶È: " << client->writeMsg.max_body_length << std::endl;
+            std::cerr << "[å“åº”è¿‡é•¿] è¶…è¿‡æœ€å¤§é•¿åº¦: " << client->writeMsg.max_body_length << std::endl;
             return false;
         }
 
-        // Ìî³äÏìÓ¦Êı¾İ
+        // å¡«å……å“åº”æ•°æ®
         client->writeMsg.body_length(responseData.size());
         std::memcpy(client->writeMsg.body(), responseData.data(), responseData.size());
         client->writeMsg.encode_header();
 
-        // ·¢ËÍÊı¾İ
+        // å‘é€æ•°æ®
         int totalSent = 0;
         int dataLength = client->writeMsg.length();
         const char* data = client->writeMsg.data();
@@ -272,7 +272,7 @@ private:
         return true;
     }
 
-    // ×ª»¯¸ñÊ½µÄºÏÔ¼ÁĞ±í
+    // è½¬åŒ–æ ¼å¼çš„åˆçº¦åˆ—è¡¨
     static std::vector<std::string> LoadContracts1(std::unique_ptr<sql::ResultSet> res)
     {
         std::vector<std::string> contracts;
@@ -283,14 +283,14 @@ private:
                 contracts.push_back(res->getString("symbol"));
             }
 
-            //printf("´ÓÊı¾İ¿â¼ÓÔØÁË %zu ¸öºÏÔ¼\n", contracts.size());
+            //printf("ä»æ•°æ®åº“åŠ è½½äº† %zu ä¸ªåˆçº¦\n", contracts.size());
             for (const auto& contract : contracts) {
                 printf("  - %s\n", contract.c_str());
             }
             fflush(stdout);
         }
         catch (sql::SQLException& e) {
-            //printf("[DB ERROR] ¼ÓÔØºÏÔ¼ÁĞ±íÊ§°Ü: %s\n", e.what());
+            //printf("[DB ERROR] åŠ è½½åˆçº¦åˆ—è¡¨å¤±è´¥: %s\n", e.what());
             fflush(stdout);
         }
 
@@ -299,23 +299,23 @@ private:
 
 public:
     
-    // ÇëÇóÍ£Ö¹Ä³¸ö token ¶ÔÓ¦µÄÊØ»¤Ïß³Ì£¨Í¨³£ÔÚ¿Í»§¶Ë¶Ï¿ªÊ±µ÷ÓÃ£©
+    // è¯·æ±‚åœæ­¢æŸä¸ª token å¯¹åº”çš„å®ˆæŠ¤çº¿ç¨‹ï¼ˆé€šå¸¸åœ¨å®¢æˆ·ç«¯æ–­å¼€æ—¶è°ƒç”¨ï¼‰
     static void stopUserWatcher(const std::string& token) {
         std::lock_guard<std::mutex> lk(userWatchersMutex);
         auto it = userWatchers.find(token);
         if (it != userWatchers.end()) {
             it->second->store(true);
-            // ÓÉÊØ»¤Ïß³Ì×îÖÕ´ÓÓ³ÉäÖĞÒÆ³ı×Ô¼ºµÄÌõÄ¿
+            // ç”±å®ˆæŠ¤çº¿ç¨‹æœ€ç»ˆä»æ˜ å°„ä¸­ç§»é™¤è‡ªå·±çš„æ¡ç›®
         }
     }
 
     FuturesAlertServer() {
-        // ³õÊ¼»¯Â·ÓÉÓ³Éä
+        // åˆå§‹åŒ–è·¯ç”±æ˜ å°„
         requestHandlers = {
             {"register", &FuturesAlertServer::handleRegister},
             {"login", &FuturesAlertServer::handleLogin},
             {"set_email", &FuturesAlertServer::handleSetEmail},
-            // Ô¤¾¯Ïà¹Ø£¨Ö§³Ö price Óë time Á½ÖÖ warning_type£¬Í¨¹ı×Ö¶ÎÇø·Ö£©
+            // é¢„è­¦ç›¸å…³ï¼ˆæ”¯æŒ price ä¸ time ä¸¤ç§ warning_typeï¼Œé€šè¿‡å­—æ®µåŒºåˆ†ï¼‰
             {"add_warning", &FuturesAlertServer::handleAddWarning},
             {"delete_warning", &FuturesAlertServer::handleDeleteWarning},
             {"modify_warning", &FuturesAlertServer::handleModifyWarning},
@@ -324,45 +324,45 @@ public:
         };
     }
 
-    // Â·ÓÉÖ÷º¯Êı£º·Ö·¢ÇëÇóµ½¶ÔÓ¦µÄ´¦Àíº¯Êı
+    // è·¯ç”±ä¸»å‡½æ•°ï¼šåˆ†å‘è¯·æ±‚åˆ°å¯¹åº”çš„å¤„ç†å‡½æ•°
     json routeRequest(const json& requestData) {
         try {
-            // ¼ì²éÊÇ·ñ°üº¬type×Ö¶Î
+            // æ£€æŸ¥æ˜¯å¦åŒ…å«typeå­—æ®µ
             if (!requestData.contains("type")) {
-                return createErrorResponse("", "", "È±ÉÙtype×Ö¶Î");
+                return createErrorResponse("", "", "ç¼ºå°‘typeå­—æ®µ");
             }
 
             std::string reqType = requestData["type"];
             std::string reqId = requestData.contains("request_id") ? requestData["request_id"] : "";
 
-            // ²éÕÒ¶ÔÓ¦µÄ´¦Àíº¯Êı
+            // æŸ¥æ‰¾å¯¹åº”çš„å¤„ç†å‡½æ•°
             auto it = requestHandlers.find(reqType);
             if (it == requestHandlers.end()) {
-                return createErrorResponse(reqId, reqType, "²»Ö§³ÖµÄÇëÇóÀàĞÍ: " + reqType);
+                return createErrorResponse(reqId, reqType, "ä¸æ”¯æŒçš„è¯·æ±‚ç±»å‹: " + reqType);
             }
 
-            // µ÷ÓÃ´¦Àíº¯Êı
+            // è°ƒç”¨å¤„ç†å‡½æ•°
             return it->second(*this, requestData);
         }
         catch (const std::exception& e) {
             std::string reqId = requestData.contains("request_id") ? requestData["request_id"] : "";
             std::string reqType = requestData.contains("type") ? requestData["type"] : "";
-            return createErrorResponse(reqId, reqType, "´¦ÀíÇëÇóÊ±·¢Éú´íÎó: " + std::string(e.what()));
+            return createErrorResponse(reqId, reqType, "å¤„ç†è¯·æ±‚æ—¶å‘ç”Ÿé”™è¯¯: " + std::string(e.what()));
         }
         catch (...) {
             std::string reqId = requestData.contains("request_id") ? requestData["request_id"] : "";
             std::string reqType = requestData.contains("type") ? requestData["type"] : "";
-            return createErrorResponse(reqId, reqType, "´¦ÀíÇëÇóÊ±·¢ÉúÎ´Öª´íÎó");
+            return createErrorResponse(reqId, reqType, "å¤„ç†è¯·æ±‚æ—¶å‘ç”ŸæœªçŸ¥é”™è¯¯");
         }
     }
 
-    // ---------------------- Êı¾İ¿âÅäÖÃ£¨¿É¸ù¾İĞèÒª¸Ä£© ----------------------
+    // ---------------------- æ•°æ®åº“é…ç½®ï¼ˆå¯æ ¹æ®éœ€è¦æ”¹ï¼‰ ----------------------
     static sql::Connection* getConn() {
         sql::Driver* driver = get_driver_instance();
         return driver->connect("tcp://127.0.0.1:3306", "root", "123456");
     }
 
-    // ---------------------- ×¢²á ----------------------
+    // ---------------------- æ³¨å†Œ ----------------------
     static json handleRegister(FuturesAlertServer& server, const json& request) {
         std::string reqId = request["request_id"];
         std::string username = request["username"];
@@ -379,14 +379,14 @@ public:
             stmt->setString(2, password);
             stmt->execute();
 
-            return server.createSuccessResponse(reqId, "register", { {"message", "×¢²á³É¹¦"} });
+            return server.createSuccessResponse(reqId, "register", { {"message", "æ³¨å†ŒæˆåŠŸ"} });
         }
         catch (sql::SQLException& e) {
-            return server.createErrorResponse(reqId, "register", "×¢²áÊ§°Ü: ÓÃ»§Ãû¿ÉÄÜÒÑ´æÔÚ");
+            return server.createErrorResponse(reqId, "register", "æ³¨å†Œå¤±è´¥: ç”¨æˆ·åå¯èƒ½å·²å­˜åœ¨");
         }
     }
 
-    // ---------------------- µÇÂ¼ ----------------------
+    // ---------------------- ç™»å½• ----------------------
     static json handleLogin(FuturesAlertServer& server, const json& request) {
         std::string reqId = request["request_id"];
         std::string username = request["username"];
@@ -406,20 +406,20 @@ public:
             if (res->next()) {
                 std::string token = "token_" + username;
 
-                // µÇÂ¼³É¹¦ºóÆô¶¯Óë¸ÃÓÃ»§¹ØÁªµÄÊØ»¤Ïß³Ì£¨ÉúÃüÖÜÆÚÓÉ¿Í»§¶ËÁ¬½Ó¿ØÖÆ£©
+                // ç™»å½•æˆåŠŸåå¯åŠ¨ä¸è¯¥ç”¨æˆ·å…³è”çš„å®ˆæŠ¤çº¿ç¨‹ï¼ˆç”Ÿå‘½å‘¨æœŸç”±å®¢æˆ·ç«¯è¿æ¥æ§åˆ¶ï¼‰
                 startUserWatcher(token, username);
 				ThreadLocalUser::SetUserID(username);
 				ThreadLocalUser::SetUserToken(token);
                 return server.createSuccessResponse(reqId, "login");
             }
-            return server.createErrorResponse(reqId, "login", "ÓÃ»§Ãû»òÃÜÂë´íÎó");
+            return server.createErrorResponse(reqId, "login", "ç”¨æˆ·åæˆ–å¯†ç é”™è¯¯");
         }
         catch (sql::SQLException& e) {
-            return server.createErrorResponse(reqId, "login", "Êı¾İ¿â´íÎó");
+            return server.createErrorResponse(reqId, "login", "æ•°æ®åº“é”™è¯¯");
         }
     }
 
-    // ---------------------- ÉèÖÃÓÊÏä ----------------------
+    // ---------------------- è®¾ç½®é‚®ç®± ----------------------
     static json handleSetEmail(FuturesAlertServer& server, const json& request) {
         std::string reqId = request["request_id"];
         std::string username = request["username"];
@@ -439,12 +439,12 @@ public:
             return server.createSuccessResponse(reqId, "set_email");
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "set_email", "ÉèÖÃÓÊÏäÊ§°Ü");
+            return server.createErrorResponse(reqId, "set_email", "è®¾ç½®é‚®ç®±å¤±è´¥");
         }
     }
 
-    // ---------------------- Ìí¼ÓÔ¤¾¯µ¥ ----------------------
-    // Ö§³ÖÁ½ÖÖ warning_type: "price" ºÍ "time"
+    // ---------------------- æ·»åŠ é¢„è­¦å• ----------------------
+    // æ”¯æŒä¸¤ç§ warning_type: "price" å’Œ "time"
     static json handleAddWarning(FuturesAlertServer& server, const json& request) {
         std::string reqId = request.contains("request_id") ? request["request_id"] : "";
         std::string username = request.contains("account") ? request["account"] : (request.contains("username") ? request["username"] : "");
@@ -452,7 +452,7 @@ public:
         std::string warningType = request.contains("warning_type") ? request["warning_type"] : "price";
 
         if (username.empty() || symbol.empty()) {
-            return server.createErrorResponse(reqId, "add_warning", "È±ÉÙ account »ò symbol ×Ö¶Î");
+            return server.createErrorResponse(reqId, "add_warning", "ç¼ºå°‘ account æˆ– symbol å­—æ®µ");
         }
 
         try {
@@ -461,7 +461,7 @@ public:
 
             if (warningType == "price") {
                 if (!request.contains("max_price") || !request.contains("min_price")) {
-                    return server.createErrorResponse(reqId, "add_warning", "¼Û¸ñÔ¤¾¯È±ÉÙ max_price »ò min_price");
+                    return server.createErrorResponse(reqId, "add_warning", "ä»·æ ¼é¢„è­¦ç¼ºå°‘ max_price æˆ– min_price");
                 }
                 double maxPrice = request["max_price"];
                 double minPrice = request["min_price"];
@@ -481,7 +481,7 @@ public:
             }
             else if (warningType == "time") {
                 if (!request.contains("trigger_time")) {
-                    return server.createErrorResponse(reqId, "add_warning", "Ê±¼äÔ¤¾¯È±ÉÙ trigger_time");
+                    return server.createErrorResponse(reqId, "add_warning", "æ—¶é—´é¢„è­¦ç¼ºå°‘ trigger_time");
                 }
                 std::string triggerTime = request["trigger_time"];
 
@@ -498,10 +498,10 @@ public:
                 stmt->execute();
             }
             else {
-                return server.createErrorResponse(reqId, "add_warning", "Î´ÖªµÄ warning_type: " + warningType);
+                return server.createErrorResponse(reqId, "add_warning", "æœªçŸ¥çš„ warning_type: " + warningType);
             }
 
-            // »ñÈ¡¸Õ²åÈëµÄID
+            // è·å–åˆšæ’å…¥çš„ID
             std::unique_ptr<sql::PreparedStatement> stmt2(
                 conn->prepareStatement("SELECT LAST_INSERT_ID() AS id")
             );
@@ -514,11 +514,11 @@ public:
                 });
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "add_warning", "Ìí¼ÓÔ¤¾¯µ¥Ê§°Ü");
+            return server.createErrorResponse(reqId, "add_warning", "æ·»åŠ é¢„è­¦å•å¤±è´¥");
         }
     }
 
-    // ---------------------- É¾³ıÔ¤¾¯µ¥ ----------------------
+    // ---------------------- åˆ é™¤é¢„è­¦å• ----------------------
     static json handleDeleteWarning(FuturesAlertServer& server, const json& request) {
         std::string reqId = request["request_id"];
         long orderId = request["order_id"];
@@ -536,12 +536,12 @@ public:
             return server.createSuccessResponse(reqId, "delete_warning");
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "delete_warning", "É¾³ıÊ§°Ü");
+            return server.createErrorResponse(reqId, "delete_warning", "åˆ é™¤å¤±è´¥");
         }
     }
 
-    // ---------------------- ĞŞ¸ÄÔ¤¾¯µ¥ ----------------------
-    // Ö§³ÖĞŞ¸Ä price »ò time ÀàĞÍµÄ×Ö¶Î£¨¿ÉÑ¡×Ö¶Î£©
+    // ---------------------- ä¿®æ”¹é¢„è­¦å• ----------------------
+    // æ”¯æŒä¿®æ”¹ price æˆ– time ç±»å‹çš„å­—æ®µï¼ˆå¯é€‰å­—æ®µï¼‰
     static json handleModifyWarning(FuturesAlertServer& server, const json& request) {
         std::string reqId = request.contains("request_id") ? request["request_id"] : "";
         long orderId = request["order_id"];
@@ -556,7 +556,7 @@ public:
                 bool hasMin = request.contains("min_price");
 
                 if (!hasMax && !hasMin) {
-                    return server.createErrorResponse(reqId, "modify_warning", "¼Û¸ñÔ¤¾¯Î´Ìá¹©¿ÉĞŞ¸ÄµÄ×Ö¶Î");
+                    return server.createErrorResponse(reqId, "modify_warning", "ä»·æ ¼é¢„è­¦æœªæä¾›å¯ä¿®æ”¹çš„å­—æ®µ");
                 }
 
                 if (hasMax && hasMin) {
@@ -591,7 +591,7 @@ public:
             }
             else if (warningType == "time") {
                 if (!request.contains("trigger_time")) {
-                    return server.createErrorResponse(reqId, "modify_warning", "Ê±¼äÔ¤¾¯Î´Ìá¹© trigger_time");
+                    return server.createErrorResponse(reqId, "modify_warning", "æ—¶é—´é¢„è­¦æœªæä¾› trigger_time");
                 }
                 std::string triggerTime = request["trigger_time"];
                 std::unique_ptr<sql::PreparedStatement> stmt(
@@ -602,21 +602,19 @@ public:
                 stmt->execute();
             }
             else {
-                return server.createErrorResponse(reqId, "modify_warning", "Î´ÖªµÄ warning_type: " + warningType);
+                return server.createErrorResponse(reqId, "modify_warning", "æœªçŸ¥çš„ warning_type: " + warningType);
             }
 
             return server.createSuccessResponse(reqId, "modify_warning");
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "modify_warning", "ĞŞ¸ÄÊ§°Ü");
+            return server.createErrorResponse(reqId, "modify_warning", "ä¿®æ”¹å¤±è´¥");
         }
     }
 
-    // ---------------------- ²éÑ¯Ô¤¾¯µ¥ ----------------------
+    // ---------------------- æŸ¥è¯¢é¢„è­¦å• ----------------------
     static json handleQueryWarnings(FuturesAlertServer& server, const json& request) {
-        while (1) {
-
-    }
+		static const string map1[3] = { "active", "triggered","all" };
         std::string reqId = request["request_id"];
         std::string username = request["username"];
 
@@ -641,7 +639,7 @@ public:
                     {"max_price", res->isNull("max_price") ? nullptr : json(res->getDouble("max_price"))},
                     {"min_price", res->isNull("min_price") ? nullptr : json(res->getDouble("min_price"))},
                     {"trigger_time", res->isNull("trigger_time") ? "" : res->getString("trigger_time")},
-                    {"state", res->getInt("state")}
+                    {"state", map1[res->getInt("state")]}
                     });
             }
 
@@ -650,11 +648,11 @@ public:
                 });
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "query_warnings", "²éÑ¯Ê§°Ü");
+            return server.createErrorResponse(reqId, "query_warnings", "æŸ¥è¯¢å¤±è´¥");
         }
     }
 
-    // ---------------------- Ô¤¾¯È·ÈÏ ----------------------
+    // ---------------------- é¢„è­¦ç¡®è®¤ ----------------------
     static json handleAlertAck(FuturesAlertServer& server, const json& request) {
         std::string reqId = request.contains("request_id") ? request["request_id"] : "";
         long orderId = request["order_id"];
@@ -672,17 +670,17 @@ public:
             return server.createSuccessResponse(reqId, "alert_ack");
         }
         catch (...) {
-            return server.createErrorResponse(reqId, "alert_ack", "È·ÈÏÊ§°Ü");
+            return server.createErrorResponse(reqId, "alert_ack", "ç¡®è®¤å¤±è´¥");
         }
     }
 
 };
 
-//// Ê¹ÓÃÊ¾Àı
+//// ä½¿ç”¨ç¤ºä¾‹
 //int main() {
 //    FuturesAlertServer server;
 //
-//    // Ê¾Àı£º´¦ÀíÒ»¸öµÇÂ¼ÇëÇó
+//    // ç¤ºä¾‹ï¼šå¤„ç†ä¸€ä¸ªç™»å½•è¯·æ±‚
 //    json loginRequest = {
 //        {"type", "login"},
 //        {"request_id", "req_002"},

@@ -12,15 +12,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
 
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
       with:
+        # 使用与 vcpkg.json builtin-baseline 相同的版本
+        vcpkgGitCommitId: 'be563dfee81e88f9f6cf68839dff5b671b5cfb37'
         vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-        # vcpkgGitCommitId is removed; we use builtin-baseline in vcpkg.json
-        vcpkgJsonGlob: '**/vcpkg.json'
+        vcpkgJsonGlob: '**/AlarmingClient/vcpkg.json'
 
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
