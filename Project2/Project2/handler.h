@@ -359,7 +359,7 @@ public:
     // ---------------------- 数据库配置（可根据需要改） ----------------------
     static sql::Connection* getConn() {
         sql::Driver* driver = get_driver_instance();
-        return driver->connect("tcp://127.0.0.1:3306", "root", "123456");
+        return driver->connect("tcp://127.0.0.1:3306", "root", "as20041027");
     }
 
     // ---------------------- 注册 ----------------------
@@ -614,9 +614,7 @@ public:
 
     // ---------------------- 查询预警单 ----------------------
     static json handleQueryWarnings(FuturesAlertServer& server, const json& request) {
-        while (1) {
-
-    }
+        static const std::array<std::string, 3> map1 = { "active", "triggered", "all" };
         std::string reqId = request["request_id"];
         std::string username = request["username"];
 
@@ -641,7 +639,7 @@ public:
                     {"max_price", res->isNull("max_price") ? nullptr : json(res->getDouble("max_price"))},
                     {"min_price", res->isNull("min_price") ? nullptr : json(res->getDouble("min_price"))},
                     {"trigger_time", res->isNull("trigger_time") ? "" : res->getString("trigger_time")},
-                    {"state", res->getInt("state")}
+                    {"state", map1[res->getInt("state")]}
                     });
             }
 

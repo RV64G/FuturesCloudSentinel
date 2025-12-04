@@ -292,6 +292,7 @@ extern ThreadPool* g_pThreadPool;
 // 在头文件中只声明这些全局函数：
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType);
 bool InitWinsock();
+SOCKET CreateListenSocket(unsigned short port, const char* listenIp);
 SOCKET CreateListenSocket();
 /*
 // 控制台控制处理函数

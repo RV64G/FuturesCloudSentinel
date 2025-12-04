@@ -205,7 +205,7 @@ bool EmailNotifier::SendAlertEmail(const std::string& account, const std::string
     }
 
     // 使用查询到的邮箱地址发送邮件
-    std::string subject = "期货价格预警通知 - " + instrument;
+    std::string subject = "期货交易预警通知 - " + instrument;
     std::string body = "用户: " + account + "\r\n" +
         "合约: " + instrument + "\r\n" +
         "当前价格: " + std::to_string(price) + "\r\n" +

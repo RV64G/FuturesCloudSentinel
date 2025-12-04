@@ -26,8 +26,9 @@ int main() {
     //    0,                  // 立即启动线程
     //    NULL                // 不需要线程 ID
     //);
-
-    StartMarketService();
+    // 
+    //todo,记得改回来
+    //StartMarketService();
 
 
     // 初始化Winsock

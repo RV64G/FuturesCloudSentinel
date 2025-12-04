@@ -63,21 +63,24 @@ std::vector<std::string> LoadContractsFromDB()
     return contracts;
 }
 
-// 将 Test.cpp 中的 main 函数内容提取为独立函数
 int StartMarketService() {
     // 重置运行标志
     g_running.store(true);
 
+    // 注册控制台信号处理，允许 Ctrl+C 等触发优雅退出
+    SetConsoleCtrlHandler(ConsoleHandler, TRUE);
+
     // 原 main 函数的核心逻辑
     try {
         // 创建行情处理器实例
-        CMduserHandler& handler = CMduserHandler::GetHandler();
+        CMduserHandler handler;
+
         // 创建邮件通知器
         std::shared_ptr<EmailNotifier> emailNotifier = std::make_shared<EmailNotifier>(
             "smtp.163.com", 25,
             "grmtest132@163.com",    // 发件人邮箱
             "MTQ5UJyvsJ85eiG2",      // 授权码
-            ""     // 收件人邮箱
+            "2797058669@qq.com"     // 收件人邮箱
         );
 
         // 设置邮件通知器
@@ -92,7 +95,7 @@ int StartMarketService() {
         if (contracts.empty()) {
             printf("数据库中未找到合约，使用默认合约列表\n");
             contracts = {
-                "IF2512", "IH2512", "IC2512", "IM2512",
+                //"IF2512", "IH2512", "IC2512", "IM2512",
                 "TS2603", "TF2603", "T2603"
             };
         }
@@ -106,6 +109,8 @@ int StartMarketService() {
 
         // 启动预警数据重载线程
         handler.StartAlertReloadThread();
+        printf("成功启动预警程序\n");
+        fflush(stdout);
 
         // 在独立线程中运行监控逻辑
         std::thread monitorThread([&handler]() {
@@ -118,10 +123,10 @@ int StartMarketService() {
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
             });
 
-        // 分离线程，使其独立运行
-        monitorThread.detach();
+        // 主线程等待监控线程结束（避免进程提前退出）
+        monitorThread.join();
 
-        return 0; // 成功启动
+        return 0; // 成功启动并等待退出
     }
     catch (...) {
         return -1; // 启动失败

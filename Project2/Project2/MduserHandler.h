@@ -17,6 +17,7 @@
 #include <atomic>
 #include <thread>
 #include <functional>
+#include <algorithm>
 
 
 #include <mysql/jdbc.h>
@@ -62,7 +63,7 @@ public:
 static sql::Connection* GetConn()
 {
     sql::Driver* driver = get_driver_instance();
-    sql::Connection* conn = driver->connect("tcp://127.0.0.1:3306", "root", "1234");
+    sql::Connection* conn = driver->connect("tcp://127.0.0.1:3306", "root", "as20041027");
     conn->setSchema("futurescloudsentinel");
     return conn;
 }
@@ -300,17 +301,23 @@ public:
         CheckAlert(symbol, price);
     }
 
-    // 根据 symbol 和 price 判断预警
-    void CheckAlert(const string& symbol, double price)
+
+        // 根据 symbol 和 price 判断预警
+        void CheckAlert(const string& symbol, double price)
     {
         vector<AlertOrder> alerts;
 
         {
             lock_guard<mutex> lk(m_alertMutex);
-            if (m_alertMap.count(symbol) == 0)
+            auto it = m_alertMap.find(symbol);
+            if (it == m_alertMap.end())
                 return;
-            alerts = m_alertMap[symbol];
+            alerts = it->second; // 拷贝，避免长时间持锁
         }
+
+        // 记录已触发的 orderId，循环结束后在内存中删除它们
+        vector<long> triggeredIds;
+        triggeredIds.reserve(4);
 
         // 获取当前时间 - 使用安全的 localtime_s
         time_t now = time(0);
@@ -344,31 +351,46 @@ public:
                     &trigger_tm.tm_year, &trigger_tm.tm_mon, &trigger_tm.tm_mday,
                     &trigger_tm.tm_hour, &trigger_tm.tm_min, &trigger_tm.tm_sec);
 
-                // 检查解析是否成功
-                if (result == 6) {  // 成功解析了6个字段
-                    // 转换为标准 tm 格式
-                    trigger_tm.tm_year -= 1900;  // tm_year 从1900年开始计数
-                    trigger_tm.tm_mon -= 1;      // tm_mon 从0开始计数
+                if (result == 6) {
+                    trigger_tm.tm_year -= 1900;
+                    trigger_tm.tm_mon -= 1;
 
-                    // 计算预警时间的前一天
                     time_t trigger_time_t = mktime(&trigger_tm);
-                    time_t one_day_before = trigger_time_t - 24 * 60 * 60;  // 减去一天的秒数
-
-                    // 获取当前时间
                     time_t current_time_t = time(0);
 
-                    // 判断是否在前一天范围内
-                    if (current_time_t >= one_day_before && current_time_t < trigger_time_t) {
+                    if (current_time_t >= trigger_time_t) {
                         triggered = true;
-                        reason = "到达预定时间前一天 " + a.trigger_time;
+                        reason = "到达预定时间 " + a.trigger_time;
                     }
                 }
             }
 
             if (triggered)
             {
+                // 先通知并在 DB 标记
                 m_notifier->Notify(a.account, symbol, price, reason);
                 MarkAlertTriggered(a.orderId);
+
+                // 立即记录，需要在内存中移除，避免短时间重复触发
+                triggeredIds.push_back(a.orderId);
+            }
+        }
+
+        // 如果有触发项，移除内存缓存中的对应条目（线程安全）
+        if (!triggeredIds.empty())
+        {
+            lock_guard<mutex> lk(m_alertMutex);
+            auto it = m_alertMap.find(symbol);
+            if (it != m_alertMap.end())
+            {
+                auto& vec = it->second;
+                vec.erase(std::remove_if(vec.begin(), vec.end(),
+                    [&](const AlertOrder& x) {
+                        return std::find(triggeredIds.begin(), triggeredIds.end(), x.orderId) != triggeredIds.end();
+                    }), vec.end());
+
+                if (vec.empty())
+                    m_alertMap.erase(it);
             }
         }
     }
