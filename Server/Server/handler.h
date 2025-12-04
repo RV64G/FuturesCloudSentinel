@@ -223,7 +223,7 @@ private:
                 message = "您的" + a.symbol + "合约已跌破下限 " + to_string(a.min_price) + "，当前价格 " + to_string(price) + "！";
             }
 
-            // 时间预警判断（保持原有逻辑）
+            // 时间预警判断
             if (!triggered && !a.trigger_time.empty()) {
                 tm trigger_tm = { 0 };
 
@@ -240,15 +240,14 @@ private:
 
                     // 计算预警时间
                     time_t trigger_time_t = mktime(&trigger_tm);
-                    time_t one_day_before = trigger_time_t ;  // 不减去一天的秒数
 
                     // 获取当前时间
                     time_t current_time_t = time(0);
 
-                    // 判断是否在前一天范围内
-                    if (current_time_t >= one_day_before && current_time_t < trigger_time_t) {
+                    // 当前时间达到或超过触发时间则触发
+                    if (current_time_t >= trigger_time_t) {
                         triggered = true;
-                        reason = "到达预定时间前一天 " + a.trigger_time;
+                        reason = "到达预定时间 " + a.trigger_time;
                     }
                 }
             }
@@ -700,9 +699,17 @@ public:
 
             json arr = json::array();
             while (res->next()) {
+                // 根据字段判断预警类型：有 trigger_time 且无 max/min_price 则为时间预警
+                bool hasMaxPrice = !res->isNull("max_price");
+                bool hasMinPrice = !res->isNull("min_price");
+                bool hasTriggerTime = !res->isNull("trigger_time") && !res->getString("trigger_time").empty();
+                
+                std::string warningType = (hasTriggerTime && !hasMaxPrice && !hasMinPrice) ? "time" : "price";
+                
                 arr.push_back({
                     {"order_id", std::to_string(res->getInt("orderId"))},
                     {"symbol", res->getString("symbol")},
+                    {"warning_type", warningType},
                     {"max_price", res->isNull("max_price") ? nullptr : json(res->getDouble("max_price"))},
                     {"min_price", res->isNull("min_price") ? nullptr : json(res->getDouble("min_price"))},
                     {"trigger_time", res->isNull("trigger_time") ? "" : res->getString("trigger_time")},

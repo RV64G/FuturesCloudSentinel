@@ -108,6 +108,15 @@ void WarningManager::handleResponse(const std::string& type, bool success, const
                 
                 std::string wType = item.value("warning_type", "");
                 if (wType.empty()) wType = item.value("type", "");
+                // 如果仍为空，根据字段推断类型
+                if (wType.empty()) {
+                    bool hasTriggerTime = item.contains("trigger_time") && !item["trigger_time"].is_null() 
+                                          && item["trigger_time"].is_string() && !item["trigger_time"].get<std::string>().empty();
+                    bool hasPrice = (item.contains("max_price") && !item["max_price"].is_null()) 
+                                    || (item.contains("min_price") && !item["min_price"].is_null());
+                    wType = (hasTriggerTime && !hasPrice) ? "time" : "price";
+                }
+                qDebug() << "[WarningManager] Parsed warning: order_id=" << orderId << "type=" << QString::fromStdString(wType);
                 map.insert("type", QString::fromStdString(wType));
 
                 // Add Contract Name
