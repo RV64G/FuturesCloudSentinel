@@ -108,13 +108,17 @@ void WarningManager::handleResponse(const std::string& type, bool success, const
                 if (item.contains("max_price")) map.insert("max_price", item["max_price"].get<double>());
                 if (item.contains("min_price")) map.insert("min_price", item["min_price"].get<double>());
                 if (item.contains("trigger_time")) map.insert("trigger_time", QString::fromStdString(item["trigger_time"].get<std::string>()));
+                
+                // 解析触发状态
+                std::string status = item.value("status", "active");
+                map.insert("status", QString::fromStdString(status));
+                
                 warningList_.append(QVariant(map));
             }
             qDebug() << "[WarningManager] Loaded" << warningList_.size() << "warnings";
             emit warningListChanged();
-            if (!symbolsToSubscribe.isEmpty()) {
-                emit subscribeRequest(symbolsToSubscribe);
-            }
+            // 始终发送订阅请求（即使列表为空，也需要退订不再需要的合约）
+            emit subscribeRequest(symbolsToSubscribe);
         } else {
             emit operationResult(false, QString::fromStdString(message));
         }

@@ -117,7 +117,7 @@ private:
     QVariantMap prices_;
     
     // 生产环境真实服务器地址 (非 debug 模式使用)
-    static constexpr const char* PRODUCTION_SERVER_ADDRESS = "your-production-server.com";
+    static constexpr const char* PRODUCTION_SERVER_ADDRESS = "192.168.35.98";
     static constexpr int PRODUCTION_SERVER_PORT = 8888;
     
     QString serverAddress_ = PRODUCTION_SERVER_ADDRESS;

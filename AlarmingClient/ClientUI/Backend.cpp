@@ -27,7 +27,8 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     });
     connect(warningManager_, &WarningManager::subscribeRequest, [this](const QStringList& symbols){
         if (quoteClient_) {
-            quoteClient_->subscribe(symbols);
+            // 使用智能更新：自动订阅新的、退订不需要的
+            quoteClient_->updateSubscriptions(symbols);
         }
     });
 
@@ -52,14 +53,15 @@ Backend::Backend(QObject *parent) : QObject(parent) {
 
     // Initialize QuoteClient
     quoteClient_ = new QuoteClient(this);
-    connect(quoteClient_, &QuoteClient::priceUpdated, this, &Backend::onPriceUpdated);
-    connect(quoteClient_, &QuoteClient::connectionStatusChanged, [this](bool connected) {
+    // 使用 Qt::QueuedConnection 确保 CTP 回调线程的信号在主线程处理
+    connect(quoteClient_, &QuoteClient::priceUpdated, this, &Backend::onPriceUpdated, Qt::QueuedConnection);
+    connect(quoteClient_, &QuoteClient::connectionStatusChanged, this, [this](bool connected) {
         lastCtpHeartbeat_ = QDateTime::currentMSecsSinceEpoch();
         if (ctpConnected_ != connected) {
             ctpConnected_ = connected;
             emit ctpConnectedChanged();
         }
-    });
+    }, Qt::QueuedConnection);
     
     // Connect to CTP (24h demo server for quotes)
     // 注意: CTP 连接独立于 SIMULATE_SERVER，因为行情数据对测试有帮助

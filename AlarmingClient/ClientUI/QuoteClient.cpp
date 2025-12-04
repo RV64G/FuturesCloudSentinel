@@ -78,10 +78,81 @@ void QuoteClient::subscribe(const QStringList& instruments)
     int ret = m_api->SubscribeMarketData(ppInstrumentID, count);
     qDebug() << "[QuoteClient] SubscribeMarketData returned:" << ret;
 
+    // 记录已订阅的合约
+    for (const QString& inst : instruments) {
+        m_subscribedInstruments.insert(inst);
+    }
+
     for (int i = 0; i < count; ++i) {
         delete[] ppInstrumentID[i];
     }
     delete[] ppInstrumentID;
+}
+
+void QuoteClient::unsubscribe(const QStringList& instruments)
+{
+    if (instruments.isEmpty() || !m_isConnected || !m_api) {
+        return;
+    }
+
+    qDebug() << "[QuoteClient] Unsubscribe request:" << instruments;
+
+    int count = instruments.size();
+    char** ppInstrumentID = new char*[count];
+    for (int i = 0; i < count; ++i) {
+        ppInstrumentID[i] = new char[31];
+        std::string s = instruments[i].toStdString();
+        strncpy(ppInstrumentID[i], s.c_str(), 30);
+        ppInstrumentID[i][30] = '\0';
+        qDebug() << "[QuoteClient] Unsubscribing:" << ppInstrumentID[i];
+    }
+
+    int ret = m_api->UnSubscribeMarketData(ppInstrumentID, count);
+    qDebug() << "[QuoteClient] UnSubscribeMarketData returned:" << ret;
+
+    // 从已订阅列表中移除
+    for (const QString& inst : instruments) {
+        m_subscribedInstruments.remove(inst);
+    }
+
+    for (int i = 0; i < count; ++i) {
+        delete[] ppInstrumentID[i];
+    }
+    delete[] ppInstrumentID;
+}
+
+void QuoteClient::updateSubscriptions(const QStringList& newInstruments)
+{
+    QSet<QString> newSet;
+    for (const QString& inst : newInstruments) {
+        newSet.insert(inst);
+    }
+    
+    // 找出需要退订的（在已订阅中但不在新列表中）
+    QStringList toUnsubscribe;
+    for (const QString& inst : m_subscribedInstruments) {
+        if (!newSet.contains(inst)) {
+            toUnsubscribe.append(inst);
+        }
+    }
+    
+    // 找出需要新订阅的（在新列表中但不在已订阅中）
+    QStringList toSubscribe;
+    for (const QString& inst : newInstruments) {
+        if (!m_subscribedInstruments.contains(inst)) {
+            toSubscribe.append(inst);
+        }
+    }
+    
+    if (!toUnsubscribe.isEmpty()) {
+        qDebug() << "[QuoteClient] Will unsubscribe:" << toUnsubscribe;
+        unsubscribe(toUnsubscribe);
+    }
+    
+    if (!toSubscribe.isEmpty()) {
+        qDebug() << "[QuoteClient] Will subscribe:" << toSubscribe;
+        subscribe(toSubscribe);
+    }
 }
 
 void QuoteClient::OnFrontConnected()
@@ -130,6 +201,15 @@ void QuoteClient::OnRspSubMarketData(CThostFtdcSpecificInstrumentField *pSpecifi
         qDebug() << "[QuoteClient] Subscribe FAILED:" << pRspInfo->ErrorMsg;
     } else {
         qDebug() << "[QuoteClient] Subscribe OK:" << (pSpecificInstrument ? pSpecificInstrument->InstrumentID : "null");
+    }
+}
+
+void QuoteClient::OnRspUnSubMarketData(CThostFtdcSpecificInstrumentField *pSpecificInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
+{
+    if (pRspInfo && pRspInfo->ErrorID != 0) {
+        qDebug() << "[QuoteClient] Unsubscribe FAILED:" << pRspInfo->ErrorMsg;
+    } else {
+        qDebug() << "[QuoteClient] Unsubscribe OK:" << (pSpecificInstrument ? pSpecificInstrument->InstrumentID : "null");
     }
 }
 

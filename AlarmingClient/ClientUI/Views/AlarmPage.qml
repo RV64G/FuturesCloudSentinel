@@ -66,10 +66,18 @@ Page {
                             color: theme ? theme.primary : "#0078d4"
                         }
                     }
-                    Label { 
-                        text: modelData.type === "time" ? "时间预警" : "价格预警"
-                        font.pixelSize: 12
-                        color: theme ? theme.colorOnSurfaceVariant : "#666666" 
+                    RowLayout {
+                        spacing: 8
+                        Label { 
+                            text: modelData.type === "time" ? "时间预警" : "价格预警"
+                            font.pixelSize: 12
+                            color: theme ? theme.colorOnSurfaceVariant : "#666666" 
+                        }
+                        Label {
+                            text: modelData.status === "triggered" ? "已触发" : "未触发"
+                            font.pixelSize: 12
+                            color: modelData.status === "triggered" ? "#F14C4C" : (theme ? theme.colorOnSurfaceVariant : "#666666")
+                        }
                     }
                 }
                 highlighted: ListView.isCurrentItem
