@@ -121,14 +121,20 @@ void FuturesClient::add_price_warning(const std::string& account, const std::str
 }
 
 void FuturesClient::add_time_warning(const std::string& account, const std::string& symbol, const std::string& trigger_time) {
-    json j;
-    j["type"] = "add_warning";
-    j["request_id"] = generate_request_id();
-    j["warning_type"] = "time";
-    j["account"] = account;
-    j["symbol"] = symbol;
-    j["trigger_time"] = trigger_time;
-    send_json(j);
+    try {
+        LOG_DEBUG("[FuturesClient] add_time_warning: account=" << account << " symbol=" << symbol << " time=" << trigger_time);
+        json j;
+        j["type"] = "add_warning";
+        j["request_id"] = generate_request_id();
+        j["warning_type"] = "time";
+        j["account"] = account;
+        j["symbol"] = symbol;
+        j["trigger_time"] = trigger_time;
+        send_json(j);
+    } catch (const std::exception& e) {
+        LOG_ERROR("[FuturesClient] add_time_warning exception: " << e.what());
+        throw;
+    }
 }
 
 void FuturesClient::delete_warning(const std::string& order_id) {

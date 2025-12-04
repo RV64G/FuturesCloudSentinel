@@ -71,12 +71,14 @@ jobs:
         vcpkgDirectory: '${{ github.workspace }}/vcpkg'
         runVcpkgInstall: false
 
-    - name: Install MySQL Connector via vcpkg
+    - name: Install dependencies via vcpkg
       run: |
-        ./vcpkg/vcpkg install mysql-connector-cpp:x64-windows
+        ./vcpkg/vcpkg install mysql-connector-cpp:x64-windows nlohmann-json:x64-windows
 
     - name: Build Server
       working-directory: Server
+      env:
+        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
       run: |
         msbuild Server/Server.vcxproj /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="${{ github.workspace }}/Server/" /t:Build
 

@@ -209,9 +209,20 @@ void Backend::addPriceWarning(const QString &symbolText, double maxPrice, double
 }
 
 void Backend::addTimeWarning(const QString &symbolText, const QString &timeStr) {
-    current_request_type_ = "add_warning";
-    std::string symbol = extractContractCode(symbolText);
-    warningManager_->addTimeWarning(QString::fromStdString(symbol), timeStr);
+    try {
+        qDebug() << "[Backend] addTimeWarning called with symbol:" << symbolText << "time:" << timeStr;
+        current_request_type_ = "add_warning";
+        std::string symbol = extractContractCode(symbolText);
+        qDebug() << "[Backend] Extracted symbol:" << QString::fromStdString(symbol);
+        warningManager_->addTimeWarning(QString::fromStdString(symbol), timeStr);
+        qDebug() << "[Backend] addTimeWarning completed";
+    } catch (const std::exception& e) {
+        qCritical() << "[Backend] addTimeWarning exception:" << e.what();
+        emit showMessage(QString("添加时间预警失败: %1").arg(e.what()));
+    } catch (...) {
+        qCritical() << "[Backend] addTimeWarning unknown exception";
+        emit showMessage("添加时间预警失败: 未知错误");
+    }
 }
 
 void Backend::modifyPriceWarning(const QString &orderId, double maxPrice, double minPrice) {

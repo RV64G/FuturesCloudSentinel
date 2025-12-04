@@ -265,8 +265,8 @@ Page {
                     }
                     TextField { 
                         id: timeField
-                        placeholderText: "HH:mm:ss"
-                        inputMask: "99:99:99"
+                        placeholderText: "YYYY-MM-DD HH:mm:ss"
+                        inputMask: "9999-99-99 99:99:99"
                         Layout.fillWidth: true 
                         visible: typeCombo.currentIndex === 1
                     }
@@ -309,8 +309,16 @@ Page {
                                 }
                             } else { // Time
                                 var timeStr = timeField.text.trim()
-                                if (timeStr === "") {
-                                    if (ApplicationWindow.window.tips) ApplicationWindow.window.tips.showMessage("请输入触发时间", "error")
+                                console.log("[AlarmPage] Time string:", timeStr)
+                                // inputMask 会用空格填充未输入的位置，检查是否完整
+                                if (timeStr === "" || timeStr.indexOf(" ") === 0 || timeStr.length < 19) {
+                                    if (ApplicationWindow.window.tips) ApplicationWindow.window.tips.showMessage("请输入完整的触发时间", "error")
+                                    return
+                                }
+                                // 验证格式是否正确 (简单检查)
+                                var regex = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
+                                if (!regex.test(timeStr)) {
+                                    if (ApplicationWindow.window.tips) ApplicationWindow.window.tips.showMessage("时间格式不正确，请使用 YYYY-MM-DD HH:mm:ss", "error")
                                     return
                                 }
 

@@ -24,6 +24,20 @@ using json = nlohmann::json;
 class FuturesAlertServer;
 using RequestHandler = std::function<json(FuturesAlertServer&, const json&)>;
 
+// 辅助函数：安全解析 order_id（可能是字符串或整数）
+inline long parseOrderId(const json& request, const std::string& field = "order_id") {
+    if (!request.contains(field)) {
+        throw std::runtime_error("缺少 " + field + " 字段");
+    }
+    const auto& val = request[field];
+    if (val.is_number_integer()) {
+        return val.get<long>();
+    } else if (val.is_string()) {
+        return std::stol(val.get<std::string>());
+    }
+    throw std::runtime_error(field + " 格式无效");
+}
+
 class FuturesAlertServer {
 private:
     // 路由映射表：请求类型 -> 处理函数
@@ -90,9 +104,12 @@ private:
 
         auto stopFlag = std::make_shared<std::atomic<bool>>(false);
         userWatchers[token] = stopFlag;
+        
+        // 获取当前客户端上下文（在主处理线程中调用时有效）
+        ClientContext* client = ThreadLocalUser::GetClient();
 
         // 启动后台线程轮询数据库
-        std::thread([token, username, stopFlag]() {
+        std::thread([token, username, stopFlag, client]() {
             // 创建行情处理器实例
             CMduserHandler& handler = CMduserHandler::GetHandler();
             // 连接并登录行情服务器
@@ -117,10 +134,10 @@ private:
                         //std::vector<std::string> constra = LoadContracts1(std::move(res));
                         std::vector<AlertOrder> order = LoadAlertOrders(std::move(res));
                         //对比
-                        if (order.size() > 0) {
+                        if (order.size() > 0 && client != nullptr) {
                             for (auto it = m_lastPrices.begin(); it != m_lastPrices.end(); ++it) {
                             
-                                CheckAlert(order[0].symbol, it->second, order);
+                                CheckAlert(order[0].symbol, it->second, order, client);
                             }
                             
                         }
@@ -177,8 +194,11 @@ private:
         return orders;
     }
 
-    static void CheckAlert(const string& symbol, double price, vector<AlertOrder> alerts)
+    static void CheckAlert(const string& symbol, double price, vector<AlertOrder> alerts, ClientContext* client)
     {
+        if (!client) {
+            return;  // 无有效客户端上下文则直接返回
+        }
         
         // 获取当前时间 - 使用安全的 localtime_s
         time_t now = time(0);
@@ -235,13 +255,6 @@ private:
 
             if (triggered)
             {
-                //SendResponse(ThreadLocalUser::GetClient(), responseData)
-                ClientContext* client = ThreadLocalUser::GetClient();
-                if (!client) {
-                    // 无有效客户端上下文则跳过发送
-                    continue;
-                }
-
                 // 构造唯一 alert_id（可按需替换为更复杂的生成策略）
                 string alertId = "msg_" + to_string(a.orderId) + "_" + to_string((long)now);
 
@@ -543,6 +556,12 @@ public:
                 {"order_id", orderId}
                 });
         }
+        catch (sql::SQLException& e) {
+            return server.createErrorResponse(reqId, "add_warning", 1006, std::string("数据库错误: ") + e.what());
+        }
+        catch (std::exception& e) {
+            return server.createErrorResponse(reqId, "add_warning", 1006, std::string("添加预警单失败: ") + e.what());
+        }
         catch (...) {
             return server.createErrorResponse(reqId, "add_warning", 1006, "添加预警单失败");
         }
@@ -550,8 +569,14 @@ public:
 
     // ---------------------- 删除预警单 ----------------------
     static json handleDeleteWarning(FuturesAlertServer& server, const json& request) {
-        std::string reqId = request["request_id"];
-        long orderId = request["order_id"];
+        std::string reqId = request.value("request_id", "");
+        
+        long orderId;
+        try {
+            orderId = parseOrderId(request);
+        } catch (const std::exception& e) {
+            return server.createErrorResponse(reqId, "delete_warning", 1003, e.what());
+        }
 
         try {
             std::unique_ptr<sql::Connection> conn(getConn());
@@ -573,9 +598,16 @@ public:
     // ---------------------- 修改预警单 ----------------------
     // 支持修改 price 或 time 类型的字段（可选字段）
     static json handleModifyWarning(FuturesAlertServer& server, const json& request) {
-        std::string reqId = request.contains("request_id") ? request["request_id"] : "";
-        long orderId = request["order_id"];
-        std::string warningType = request.contains("warning_type") ? request["warning_type"] : "price";
+        std::string reqId = request.value("request_id", "");
+        
+        long orderId;
+        try {
+            orderId = parseOrderId(request);
+        } catch (const std::exception& e) {
+            return server.createErrorResponse(reqId, "modify_warning", 1003, e.what());
+        }
+        
+        std::string warningType = request.value("warning_type", "price");
 
         try {
             std::unique_ptr<sql::Connection> conn(getConn());
@@ -689,8 +721,14 @@ public:
 
     // ---------------------- 预警确认 ----------------------
     static json handleAlertAck(FuturesAlertServer& server, const json& request) {
-        std::string reqId = request.contains("request_id") ? request["request_id"] : "";
-        long orderId = request["order_id"];
+        std::string reqId = request.value("request_id", "");
+        
+        long orderId;
+        try {
+            orderId = parseOrderId(request);
+        } catch (const std::exception& e) {
+            return server.createErrorResponse(reqId, "alert_ack", 1003, e.what());
+        }
 
         try {
             std::unique_ptr<sql::Connection> conn(getConn());
