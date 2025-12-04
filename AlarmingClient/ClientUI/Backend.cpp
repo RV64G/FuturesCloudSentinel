@@ -375,11 +375,20 @@ void Backend::onMessageReceived(const nlohmann::json& j) {
         
         std::string symbol = j.value("symbol", "Unknown");
         double triggerValue = j.value("trigger_value", 0.0);
+        std::string reason = j.value("reason", "");
         
-        QString logDetail = QString("[ALERT] %1 (Value: %2)").arg(qMsg).arg(triggerValue);
+        QString logDetail = QString("[ALERT] %1").arg(qMsg);
+        if (!reason.empty()) {
+            logDetail += QString(" - %1").arg(QString::fromStdString(reason));
+        }
 
         emit showMessage(qMsg);
         emit logReceived(QTime::currentTime().toString("HH:mm:ss"), "ALERT", logDetail);
+        
+        // 预警触发后刷新预警列表
+        if (warningManager_) {
+            warningManager_->queryWarnings();
+        }
     }
 }
 

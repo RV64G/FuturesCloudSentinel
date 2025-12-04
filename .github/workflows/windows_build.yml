@@ -21,6 +21,15 @@ jobs:
         vcpkgGitCommitId: 'be563dfee81e88f9f6cf68839dff5b671b5cfb37'
         vcpkgDirectory: '${{ github.workspace }}/vcpkg'
         vcpkgJsonGlob: '**/AlarmingClient/vcpkg.json'
+      env:
+        VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+    - name: Export GitHub Actions cache variables
+      uses: actions/github-script@v7
+      with:
+        script: |
+          core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
@@ -70,6 +79,15 @@ jobs:
         vcpkgGitCommitId: 'be563dfee81e88f9f6cf68839dff5b671b5cfb37'
         vcpkgDirectory: '${{ github.workspace }}/vcpkg'
         runVcpkgInstall: false
+      env:
+        VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+    - name: Export GitHub Actions cache variables
+      uses: actions/github-script@v7
+      with:
+        script: |
+          core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
     - name: Install dependencies via vcpkg
       run: |
@@ -80,7 +98,7 @@ jobs:
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
       run: |
-        msbuild Server/Server.vcxproj /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="${{ github.workspace }}/Server/" /t:Build
+        msbuild Server/Server.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:SolutionDir="${{ github.workspace }}/Server/" /t:Build
 
     - name: Collect Server Artifacts
       run: |
