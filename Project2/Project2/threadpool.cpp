@@ -1,21 +1,24 @@
-#include "threadpool.h"
+Ôªø#include "threadpool.h"
 bool g_shouldQuit = false;
 SOCKET g_listenSocket = INVALID_SOCKET;
-ThreadPool* g_pThreadPool = nullptr;
+ThreadPool *g_pThreadPool = nullptr;
 
-
-// øÿ÷∆Ã®øÿ÷∆¥¶¿Ì∫Ø ˝
-BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType) {
-    if (dwCtrlType == CTRL_C_EVENT) {
-        std::cout << "\n[ ’µΩÕÀ≥ˆ–≈∫≈] ’˝‘⁄ Õ∑≈◊ ‘¥..." << std::endl;
+// ÊéßÂà∂Âè∞ÊéßÂà∂Â§ÑÁêÜÂáΩÊï∞
+BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
+{
+    if (dwCtrlType == CTRL_C_EVENT)
+    {
+        std::cout << "\n[Êî∂Âà∞ÈÄÄÂá∫‰ø°Âè∑] Ê≠£Âú®ÈáäÊîæËµÑÊ∫ê..." << std::endl;
         g_shouldQuit = true;
 
-        if (g_listenSocket != INVALID_SOCKET) {
+        if (g_listenSocket != INVALID_SOCKET)
+        {
             closesocket(g_listenSocket);
             g_listenSocket = INVALID_SOCKET;
         }
 
-        if (g_pThreadPool != nullptr) {
+        if (g_pThreadPool != nullptr)
+        {
             g_pThreadPool->Stop();
         }
 
@@ -25,34 +28,37 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType) {
     return FALSE;
 }
 
-// ≥ı ºªØWinsock
-bool InitWinsock() {
+// ÂàùÂßãÂåñWinsock
+bool InitWinsock()
+{
     WSADATA wsaData;
     int ret = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (ret != 0) {
-        std::cerr << "[Winsock≥ı ºªØ ß∞‹] ¥ÌŒÛ¬Î: " << ret << std::endl;
+    if (ret != 0)
+    {
+        std::cerr << "[WinsockÂàùÂßãÂåñÂ§±Ë¥•] ÈîôËØØÁ†Å: " << ret << std::endl;
         return false;
     }
-    if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
-        std::cerr << "[Winsock∞Ê±æ≤ª÷ß≥÷] –Ë“™ 2.2 ∞Ê±æ" << std::endl;
+    if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2)
+    {
+        std::cerr << "[WinsockÁâàÊú¨‰∏çÊîØÊåÅ] ÈúÄË¶Å 2.2 ÁâàÊú¨" << std::endl;
         WSACleanup();
         return false;
     }
-    std::cout << "[Winsock≥ı ºªØ≥…π¶] ∞Ê±æ: 2.2" << std::endl;
+    std::cout << "[WinsockÂàùÂßãÂåñÊàêÂäü] ÁâàÊú¨: 2.2" << std::endl;
     return true;
 }
 /*
-// ¥¥Ω®º‡Ã˝Socket
+// ÂàõÂª∫ÁõëÂê¨Socket
 SOCKET CreateListenSocket() {
     SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listenSocket == INVALID_SOCKET) {
-        std::cerr << "[Socket¥¥Ω® ß∞‹] ¥ÌŒÛ¬Î: " << WSAGetLastError() << std::endl;
+        std::cerr << "[SocketÂàõÂª∫Â§±Ë¥•] ÈîôËØØÁ†Å: " << WSAGetLastError() << std::endl;
         return INVALID_SOCKET;
     }
 
     int reuse = 1;
     if (setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) == SOCKET_ERROR) {
-        std::cerr << "[…Ë÷√∂Àø⁄∏¥”√ ß∞‹] ¥ÌŒÛ¬Î: " << WSAGetLastError() << std::endl;
+        std::cerr << "[ËÆæÁΩÆÁ´ØÂè£Â§çÁî®Â§±Ë¥•] ÈîôËØØÁ†Å: " << WSAGetLastError() << std::endl;
         closesocket(listenSocket);
         return INVALID_SOCKET;
     }
@@ -64,71 +70,81 @@ SOCKET CreateListenSocket() {
     serverAddr.sin_port = htons(LISTEN_PORT);
 
     if (bind(listenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "[∂Àø⁄∞Û∂® ß∞‹] ¥ÌŒÛ¬Î: " << WSAGetLastError() << std::endl;
+        std::cerr << "[Á´ØÂè£ÁªëÂÆöÂ§±Ë¥•] ÈîôËØØÁ†Å: " << WSAGetLastError() << std::endl;
         closesocket(listenSocket);
         return INVALID_SOCKET;
     }
 
     if (listen(listenSocket, 5) == SOCKET_ERROR) {
-        std::cerr << "[º‡Ã˝ ß∞‹] ¥ÌŒÛ¬Î: " << WSAGetLastError() << std::endl;
+        std::cerr << "[ÁõëÂê¨Â§±Ë¥•] ÈîôËØØÁ†Å: " << WSAGetLastError() << std::endl;
         closesocket(listenSocket);
         return INVALID_SOCKET;
     }
 
-    std::cout << "[º‡Ã˝∆Ù∂Ø≥…π¶] ∂Àø⁄: " << LISTEN_PORT << " (µ»¥˝øÕªß∂À¡¨Ω”...)" << std::endl;
+    std::cout << "[ÁõëÂê¨ÂêØÂä®ÊàêÂäü] Á´ØÂè£: " << LISTEN_PORT << " (Á≠âÂæÖÂÆ¢Êà∑Á´ØËøûÊé•...)" << std::endl;
     return listenSocket;
 }
 */
-SOCKET CreateListenSocket() {
+SOCKET CreateListenSocket()
+{
     SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (listenSocket == INVALID_SOCKET) {
-        std::cerr << "[Socket¥¥Ω® ß∞‹] ¥ÌŒÛ¬Î: " << WSAGetLastError() << std::endl;
+    if (listenSocket == INVALID_SOCKET)
+    {
+        std::cerr << "[SocketÂàõÂª∫Â§±Ë¥•] ÈîôËØØÁ†Å: " << WSAGetLastError() << std::endl;
         return INVALID_SOCKET;
     }
 
     int reuse = 1;
-    if (setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) == SOCKET_ERROR) {
-        std::cerr << "[…Ë÷√∂Àø⁄∏¥”√ ß∞‹] ¥ÌŒÛ¬Î: " << WSAGetLastError() << std::endl;
+    if (setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse)) == SOCKET_ERROR)
+    {
+        std::cerr << "[ËÆæÁΩÆÁ´ØÂè£Â§çÁî®Â§±Ë¥•] ÈîôËØØÁ†Å: " << WSAGetLastError() << std::endl;
         closesocket(listenSocket);
         return INVALID_SOCKET;
     }
 
-    // –ﬁ∏ƒ’‚¿Ôµƒ listenIp£∫
-    // - "0.0.0.0" ªÚ INADDR_ANY: º‡Ã˝À˘”–Õ¯ø®
-    // - "127.0.0.1": Ωˆ±æµÿªÿª∑
-    // - "192.168.1.100": Ωˆ∏√Õ¯ø®
-    const char* listenIp = "127.0.0.1";
+    // ‰øÆÊîπËøôÈáåÁöÑ listenIpÔºö
+    // - "0.0.0.0" Êàñ INADDR_ANY: ÁõëÂê¨ÊâÄÊúâÁΩëÂç°
+    // - "127.0.0.1": ‰ªÖÊú¨Âú∞ÂõûÁéØ
+    // - "192.168.1.100": ‰ªÖËØ•ÁΩëÂç°
+    const char *listenIp = "127.0.0.1";
 
     sockaddr_in serverAddr;
     memset(&serverAddr, 0, sizeof(serverAddr));
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(LISTEN_PORT);
 
-    if (strcmp(listenIp, "0.0.0.0") == 0) {
-        serverAddr.sin_addr.s_addr = INADDR_ANY; // º‡Ã˝À˘”–Ω”ø⁄
+    if (strcmp(listenIp, "0.0.0.0") == 0)
+    {
+        serverAddr.sin_addr.s_addr = INADDR_ANY; // ÁõëÂê¨ÊâÄÊúâÊé•Âè£
     }
-    else {
-        //  π”√ inet_pton Ω´◊÷∑˚¥Æµÿ÷∑◊™ªªŒ™∂˛Ω¯÷∆ IPv4 µÿ÷∑
+    else
+    {
+        // ‰ΩøÁî® inet_pton Â∞ÜÂ≠óÁ¨¶‰∏≤Âú∞ÂùÄËΩ¨Êç¢‰∏∫‰∫åËøõÂà∂ IPv4 Âú∞ÂùÄ
         int rc = inet_pton(AF_INET, listenIp, &serverAddr.sin_addr);
-        if (rc != 1) {
-            std::cerr << "[Ω‚Œˆº‡Ã˝IP ß∞‹] listenIp=" << listenIp << std::endl;
+        if (rc != 1)
+        {
+            std::cerr << "[Ëß£ÊûêÁõëÂê¨IPÂ§±Ë¥•] listenIp=" << listenIp << std::endl;
             closesocket(listenSocket);
             return INVALID_SOCKET;
         }
     }
 
-    /*if (bind(listenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "[∂Àø⁄∞Û∂® ß∞‹] ¥ÌŒÛ¬Î: " << WSAGetLastError() << std::endl;
-        closesocket(listenSocket);
-        return INVALID_SOCKET;
-    }*/
-
-    if (listen(listenSocket, 5) == SOCKET_ERROR) {
-        std::cerr << "[º‡Ã˝ ß∞‹] ¥ÌŒÛ¬Î: " << WSAGetLastError() << std::endl;
+    if (::bind(listenSocket,
+               reinterpret_cast<sockaddr *>(&serverAddr),
+               static_cast<int>(sizeof(serverAddr))) == SOCKET_ERROR)
+    {
+        std::cerr << "[Á´ØÂè£ÁªëÂÆöÂ§±Ë¥•] ÈîôËØØÁ†Å: " << WSAGetLastError() << std::endl;
         closesocket(listenSocket);
         return INVALID_SOCKET;
     }
 
-    std::cout << "[º‡Ã˝∆Ù∂Ø≥…π¶] IP: " << listenIp << " ∂Àø⁄: " << LISTEN_PORT << " (µ»¥˝øÕªß∂À¡¨Ω”...)" << std::endl;
+    if (listen(listenSocket, 5) == SOCKET_ERROR)
+    {
+        std::cerr << "[ÁõëÂê¨Â§±Ë¥•] ÈîôËØØÁ†Å: " << WSAGetLastError() << std::endl;
+        closesocket(listenSocket);
+        return INVALID_SOCKET;
+    }
+
+    std::cout << "[ÁõëÂê¨ÂêØÂä®ÊàêÂäü] IP: " << listenIp << " Á´ØÂè£: " << LISTEN_PORT << " (Á≠âÂæÖÂÆ¢Êà∑Á´ØËøûÊé•...)" << std::endl;
     return listenSocket;
 }
