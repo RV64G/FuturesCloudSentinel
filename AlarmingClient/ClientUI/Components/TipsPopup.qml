@@ -42,10 +42,18 @@ Popup {
 
     // Helper to get background color based on type
     function getBackgroundColor() {
-        if (!theme) return popup.type === "error" ? "#ffdddd" : (popup.type === "success" ? "#ddffdd" : "#f0f0f0")
+        if (!theme) {
+            switch (type) {
+                case "error": return "#ffdddd"
+                case "success": return "#ddffdd"
+                case "alert": return "#fff3cd"  // 警告黄色
+                default: return "#f0f0f0"
+            }
+        }
         switch (type) {
             case "error": return theme.colorErrorContainer
             case "success": return theme.colorSuccessContainer
+            case "alert": return "#fff3cd"  // 警告黄色背景
             default: return theme.surfaceVariant // or primaryContainer
         }
     }
@@ -55,6 +63,7 @@ Popup {
         switch (type) {
             case "error": return theme.colorOnErrorContainer
             case "success": return theme.colorOnSuccessContainer
+            case "alert": return "#856404"  // 深黄色文字
             default: return theme.colorOnSurfaceVariant
         }
     }
@@ -69,7 +78,14 @@ Popup {
         spacing: 10
         Label {
             id: iconLabel
-            text: popup.type === "error" ? "❌" : (popup.type === "success" ? "✅" : "ℹ️")
+            text: {
+                switch (popup.type) {
+                    case "error": return "❌"
+                    case "success": return "✅"
+                    case "alert": return "⏰"  // 预警使用闹钟图标
+                    default: return "ℹ️"
+                }
+            }
             color: getContentColor()
             font.pixelSize: 20
         }

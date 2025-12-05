@@ -1,7 +1,4 @@
-#include <jdbc/cppconn/statement.h>
-#include <jdbc/cppconn/resultset.h>
-#include <jdbc/cppconn/exception.h>
-#include "jdbc/mysql_driver.h"
+#include <mysql/jdbc.h>
 //#include<windows.h>
 #include "thread_local.h"
 #include "threadpool.h"

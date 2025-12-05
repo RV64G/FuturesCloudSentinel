@@ -685,11 +685,12 @@ public:
                     return server.createErrorResponse(reqId, "modify_warning", 1003, "价格预警未提供可修改的字段");
                 }
 
+                // 修改为价格预警时，清除时间字段（转换为价格预警）
                 if (hasMax && hasMin) {
                     double maxPrice = request["max_price"];
                     double minPrice = request["min_price"];
                     std::unique_ptr<sql::PreparedStatement> stmt(
-                        conn->prepareStatement("UPDATE alert_order SET max_price=?, min_price=?, state=0 WHERE orderId=?")
+                        conn->prepareStatement("UPDATE alert_order SET max_price=?, min_price=?, trigger_time=NULL, state=0 WHERE orderId=?")
                     );
                     stmt->setDouble(1, maxPrice);
                     stmt->setDouble(2, minPrice);
@@ -699,7 +700,7 @@ public:
                 else if (hasMax) {
                     double maxPrice = request["max_price"];
                     std::unique_ptr<sql::PreparedStatement> stmt(
-                        conn->prepareStatement("UPDATE alert_order SET max_price=?, state=0 WHERE orderId=?")
+                        conn->prepareStatement("UPDATE alert_order SET max_price=?, trigger_time=NULL, state=0 WHERE orderId=?")
                     );
                     stmt->setDouble(1, maxPrice);
                     stmt->setInt(2, orderId);
@@ -708,7 +709,7 @@ public:
                 else { // hasMin
                     double minPrice = request["min_price"];
                     std::unique_ptr<sql::PreparedStatement> stmt(
-                        conn->prepareStatement("UPDATE alert_order SET min_price=?, state=0 WHERE orderId=?")
+                        conn->prepareStatement("UPDATE alert_order SET min_price=?, trigger_time=NULL, state=0 WHERE orderId=?")
                     );
                     stmt->setDouble(1, minPrice);
                     stmt->setInt(2, orderId);
@@ -720,8 +721,9 @@ public:
                     return server.createErrorResponse(reqId, "modify_warning", 1003, "时间预警未提供 trigger_time");
                 }
                 std::string triggerTime = request["trigger_time"];
+                // 设置时间，同时清除价格字段（转换为时间预警）
                 std::unique_ptr<sql::PreparedStatement> stmt(
-                    conn->prepareStatement("UPDATE alert_order SET trigger_time=?, state=0 WHERE orderId=?")
+                    conn->prepareStatement("UPDATE alert_order SET trigger_time=?, max_price=NULL, min_price=NULL, state=0 WHERE orderId=?")
                 );
                 stmt->setString(1, triggerTime);
                 stmt->setInt(2, orderId);

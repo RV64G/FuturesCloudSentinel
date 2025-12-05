@@ -4,49 +4,47 @@
 #define WIN32_LEAN_AND_MEAN
 #include <string>
 #include <mutex>
-// MySQL Connector/C++ Í·ÎÄ¼þ
-#include <jdbc/cppconn/connection.h>
-#include <jdbc/cppconn/exception.h>
-#include "jdbc/mysql_driver.h"
+// MySQL Connector/C++ header
+#include <mysql/jdbc.h>
 using namespace sql;
 
-// Êý¾Ý¿âÁ¬½Ó¹ÜÀíÀà£¨µ¥ÀýÄ£Ê½£©
+// ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½ï¿½ï¿½Ó¹ï¿½ï¿½ï¿½ï¿½à£¨ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½
 class DBManager {
 private:
-    // µ¥ÀýÊµÀý£¨¾²Ì¬£©
+    // ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¬ï¿½ï¿½
     static DBManager* instance;
-    // Ïß³Ì°²È«Ëø£¨±£Ö¤µ¥Àý³õÊ¼»¯°²È«£©
+    // ï¿½ß³Ì°ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½
     static std::mutex instance_mutex;
 
-    // Êý¾Ý¿âÅäÖÃ£¨Ë½ÓÐ£¬½öÄÚ²¿Ê¹ÓÃ£©
+    // ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½ï¿½ï¿½Ã£ï¿½Ë½ï¿½Ð£ï¿½ï¿½ï¿½ï¿½Ú²ï¿½Ê¹ï¿½Ã£ï¿½
     std::string db_host;
     std::string db_name;
     std::string db_user;
     std::string db_pass;
     int db_timeout;
 
-    // MySQL Çý¶¯£¨È«¾ÖÎ¨Ò»£©
+    // MySQL ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½Î¨Ò»ï¿½ï¿½
     mysql::MySQL_Driver* driver;
 
-    // Ë½ÓÐ¹¹Ôìº¯Êý£¨½ûÖ¹Íâ²¿ÊµÀý»¯£©
+    // Ë½ï¿½Ð¹ï¿½ï¿½ìº¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹ï¿½â²¿Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     DBManager();
-    // Ë½ÓÐÎö¹¹º¯Êý£¨½ûÖ¹Íâ²¿Ïú»Ù£©
+    // Ë½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹ï¿½â²¿ï¿½ï¿½ï¿½Ù£ï¿½
     ~DBManager();
-    // ½ûÖ¹¿½±´¹¹ÔìºÍ¸³Öµ
+    // ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½Öµ
     DBManager(const DBManager&) = delete;
     DBManager& operator=(const DBManager&) = delete;
 
 public:
-    // È«¾Ö»ñÈ¡µ¥ÀýÊµÀý
+    // È«ï¿½Ö»ï¿½È¡ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½
     static DBManager* GetInstance();
 
-    // »ñÈ¡Êý¾Ý¿âÁ¬½Ó£¨·µ»Ø¶ÀÁ¢Á¬½Ó£¬µ÷ÓÃÕßÐèÊÖ¶¯ÊÍ·Å£©
+    // ï¿½ï¿½È¡ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½ï¿½ï¿½Ó£ï¿½ï¿½ï¿½ï¿½Ø¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¶ï¿½ï¿½Í·Å£ï¿½
     Connection* GetConnection();
 
-    // ÊÍ·ÅÊý¾Ý¿âÁ¬½Ó£¨¿ÉÑ¡£ºÈôÊ¹ÓÃÁ¬½Ó³Ø£¬´Ë´¦¸ÄÎª¹é»¹Á¬½Ó£©
+    // ï¿½Í·ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½ï¿½ï¿½Ó£ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½Ó³Ø£ï¿½ï¿½Ë´ï¿½ï¿½ï¿½Îªï¿½é»¹ï¿½ï¿½ï¿½Ó£ï¿½
     void ReleaseConnection(Connection* conn);
 
-    // ²âÊÔÁ¬½ÓÊÇ·ñÓÐÐ§
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Ð§
     bool IsConnectionValid(Connection* conn);
 };
 

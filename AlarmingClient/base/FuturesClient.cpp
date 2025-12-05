@@ -277,7 +277,7 @@ void FuturesClient::handle_message(const json& j) {
     // 1. 协议层逻辑：自动回复 ACK
     // 如果收到预警触发消息，必须回复 ACK 告知服务器已收到
     if (j.value("type", "") == "alert_triggered" && j.contains("order_id")) {
-        LOG_DEBUG("[FuturesClient] Alert triggered, sending ACK for order_id: " << j["order_id"]);
+        LOG_DEBUG("[FuturesClient] Alert triggered, sending ACK for order_id: " << j["order_id"].dump());
         json ack;
         ack["type"] = "alert_ack";
         ack["request_id"] = "ack_" + j["order_id"].get<std::string>();

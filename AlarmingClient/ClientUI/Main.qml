@@ -66,9 +66,9 @@ ApplicationWindow {
         target: backend
         function onShowMessage(message) {
             // 所有消息统一用 tips 弹出
-            if (message.indexOf("预警触发") !== -1) {
-                // 预警触发消息使用 error 类型以突出显示
-                if (tips) tips.showMessage(message, "error")
+            if (message.indexOf("预警触发") !== -1 || message.indexOf("Alert") !== -1) {
+                // 预警触发消息使用 alert 类型，显示闹钟图标 ⏰
+                if (tips) tips.showMessage(message, "alert")
             } else {
                 // 其他消息用 info 类型
                 if (tips) tips.showMessage(message, "info")
