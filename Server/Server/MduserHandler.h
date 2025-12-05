@@ -50,8 +50,13 @@ public:
             account.c_str(), instrument.c_str(), price, message.c_str());
         fflush(stdout);
 
-        // 发送邮件通知到用户邮箱
-        email_notifier->SendAlertEmail(account, instrument, price, message);
+        // 异步发送邮件，避免阻塞行情处理
+        auto emailer = email_notifier;
+        std::string acc = account, inst = instrument, msg = message;
+        double p = price;
+        std::thread([emailer, acc, inst, p, msg]() {
+            emailer->SendAlertEmail(acc, inst, p, msg);
+        }).detach();
     }
 };
 
@@ -162,7 +167,7 @@ public:
             while (m_runAlertReload.load())
             {
                 ReloadAlertsFromDB();
-                this_thread::sleep_for(chrono::seconds(3));
+                this_thread::sleep_for(chrono::seconds(1));  // 1秒刷新一次，更快响应新预警
             }
             });
     }
