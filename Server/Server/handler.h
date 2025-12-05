@@ -114,6 +114,47 @@ private:
             
             // 创建行情处理器实例
             CMduserHandler& handler = CMduserHandler::GetHandler();
+            
+            // 设置预警触发回调，让 MduserHandler 也能推送到客户端
+            handler.SetAlertCallback([client, stopFlag](const std::string& account, long orderId, 
+                                              const std::string& symbol, double price, 
+                                              const std::string& reason) {
+                // 检查客户端是否仍然有效（守护线程未停止）
+                if (!client || stopFlag->load()) {
+                    std::cout << "[MduserHandler回调] 客户端无效或已断开，跳过推送" << std::endl;
+                    return;
+                }
+                
+                try {
+                    time_t now = time(0);
+                    std::string alertId = "msg_" + std::to_string(orderId) + "_" + std::to_string((long)now);
+                    
+                    tm local_tm = { 0 };
+                    localtime_s(&local_tm, &now);
+                    char time_buffer[20];
+                    strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", &local_tm);
+                    
+                    json j;
+                    j["type"] = "alert_triggered";
+                    j["alert_id"] = alertId;
+                    j["order_id"] = std::to_string(orderId);
+                    j["symbol"] = symbol.empty() ? "TimeAlert" : symbol;
+                    j["trigger_value"] = price;
+                    j["trigger_time"] = std::string(time_buffer);
+                    j["reason"] = reason;
+                    
+                    std::string responseData = j.dump();
+                    std::cout << "[MduserHandler回调] 推送预警到客户端: " << responseData << std::endl;
+                    SendResponse(client, responseData);
+                }
+                catch (const std::exception& e) {
+                    std::cerr << "[MduserHandler回调] 异常: " << e.what() << std::endl;
+                }
+                catch (...) {
+                    std::cerr << "[MduserHandler回调] 未知异常" << std::endl;
+                }
+            });
+            
             // 连接并登录行情服务器
             handler.connect();
             handler.login();
@@ -145,11 +186,12 @@ private:
                                       << " 待处理预警=" << order.size() << std::endl;
                         }
                         
-                        //对比
-                        if (order.size() > 0 && client != nullptr) {
-                            // 统一检查所有预警（价格+时间）
-                            CheckAllAlerts(order, m_lastPrices, client);
-                        }
+                        // 注意：预警检查已由 MduserHandler::CheckAlert 实时处理（收到行情时触发）
+                        // 守护线程不再重复检查，避免重复推送
+                        // 如果需要备用检查（如行情中断时的时间预警），可取消下面注释
+                        // if (order.size() > 0 && client != nullptr) {
+                        //     CheckAllAlerts(order, m_lastPrices, client);
+                        // }
                             
                         
                     }

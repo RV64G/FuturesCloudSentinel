@@ -50,8 +50,13 @@ public:
             account.c_str(), instrument.c_str(), price, message.c_str());
         fflush(stdout);
 
-        // 发送邮件通知到用户邮箱
-        email_notifier->SendAlertEmail(account, instrument, price, message);
+        // 异步发送邮件，避免阻塞行情处理
+        auto emailer = email_notifier;
+        std::string acc = account, inst = instrument, msg = message;
+        double p = price;
+        std::thread([emailer, acc, inst, p, msg]() {
+            emailer->SendAlertEmail(acc, inst, p, msg);
+        }).detach();
     }
 };
 
@@ -88,6 +93,11 @@ private:
     vector<char*>  m_instrumentCStrs;
 
     std::shared_ptr<INotifier> m_notifier;
+
+    // 客户端推送回调（用于将预警消息推送到客户端）
+    // 参数: account, orderId, symbol, price, reason
+    using AlertCallback = std::function<void(const std::string&, long, const std::string&, double, const std::string&)>;
+    AlertCallback m_alertCallback;
 
     // 最新行情缓存
     unordered_map<string, double> m_lastPrices;
@@ -134,6 +144,12 @@ public:
         m_notifier = n;
     }
 
+    // 设置预警触发时的客户端推送回调
+    void SetAlertCallback(AlertCallback callback)
+    {
+        m_alertCallback = callback;
+    }
+
     // ===================== 获取最新行情缓存 =====================
     unordered_map<string, double> GetLastPrices()
     {
@@ -151,7 +167,7 @@ public:
             while (m_runAlertReload.load())
             {
                 ReloadAlertsFromDB();
-                this_thread::sleep_for(chrono::seconds(3));
+                this_thread::sleep_for(chrono::seconds(1));  // 1秒刷新一次，更快响应新预警
             }
             });
     }
@@ -458,11 +474,11 @@ public:
             // 价格预警判断
             if (a.max_price > 0 && price >= a.max_price) {
                 triggered = true;
-                reason = ">= 上限 " + to_string(a.max_price);
+                reason = "price >= max " + to_string(a.max_price);
             }
             if (a.min_price > 0 && price <= a.min_price) {
                 triggered = true;
-                reason = "<= 下限 " + to_string(a.min_price);
+                reason = "price <= min " + to_string(a.min_price);
             }
 
             if (!a.trigger_time.empty()) {
@@ -483,7 +499,7 @@ public:
 
                     if (current_time_t >= trigger_time_t) {
                         triggered = true;
-                        reason = "到达预定时间 " + a.trigger_time;
+                        reason = "time reached: " + a.trigger_time;
                     }
                 }
             }
@@ -493,6 +509,19 @@ public:
                 // 先通知并在 DB 标记
                 m_notifier->Notify(a.account, symbol, price, reason);
                 MarkAlertTriggered(a.orderId);
+
+                // 调用回调推送到客户端
+                std::cout << "[CheckAlert] 准备调用回调，m_alertCallback=" 
+                          << (m_alertCallback ? "已设置" : "未设置") << std::endl;
+                if (m_alertCallback) {
+                    std::cout << "[CheckAlert] 调用回调: account=" << a.account 
+                              << " orderId=" << a.orderId << " symbol=" << symbol 
+                              << " price=" << price << " reason=" << reason << std::endl;
+                    m_alertCallback(a.account, a.orderId, symbol, price, reason);
+                    std::cout << "[CheckAlert] 回调调用完成" << std::endl;
+                } else {
+                    std::cout << "[CheckAlert] 警告：回调未设置，无法推送到客户端！" << std::endl;
+                }
 
                 // 立即记录，需要在内存中移除，避免短时间重复触发
                 triggeredIds.push_back(a.orderId);
