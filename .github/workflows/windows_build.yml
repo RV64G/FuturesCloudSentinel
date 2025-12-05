@@ -2,7 +2,7 @@ name: Windows Build
 
 on:
   push:
-    branches: ["bugfix/UI", "main", "feature/GUI"]
+    branches: ["bugfix/UI", "main"]
   pull_request:
     branches: ["main"]
 
@@ -97,13 +97,10 @@ jobs:
 
     - name: Build Server
       working-directory: Server
-      env:
-        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-        VCPKG_INSTALLED_DIR: ${{ github.workspace }}/vcpkg/installed/x64-windows
       run: |
-        $env:CL = "/I`"${{ github.workspace }}/vcpkg/installed/x64-windows/include`""
-        $env:LINK = "/LIBPATH:`"${{ github.workspace }}/vcpkg/installed/x64-windows/lib`""
-        msbuild Server/Server.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:SolutionDir="${{ github.workspace }}/Server/" /t:Build
+        $vcpkgInclude = "${{ github.workspace }}/vcpkg/installed/x64-windows/include"
+        $vcpkgLib = "${{ github.workspace }}/vcpkg/installed/x64-windows/lib"
+        msbuild Server/Server.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:SolutionDir="${{ github.workspace }}/Server/" /p:IncludePath="$vcpkgInclude;$(IncludePath)" /p:LibraryPath="$vcpkgLib;$(LibraryPath)" /t:Build
 
     - name: Collect Server Artifacts
       run: |
