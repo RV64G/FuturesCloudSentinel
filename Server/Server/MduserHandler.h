@@ -335,8 +335,30 @@ public:
     {
         m_isConnected = false;
         m_isLoggedIn = false;
-        printf("OnFrontDisconnected: reason=%d\n", nReason);
+        
+        // 解析断开原因
+        const char* reasonStr = "Unknown";
+        switch (nReason) {
+            case 0x1001: reasonStr = "Network read error"; break;
+            case 0x1002: reasonStr = "Network write error"; break;
+            case 0x2001: reasonStr = "Heartbeat timeout"; break;
+            case 0x2002: reasonStr = "Heartbeat send failed"; break;
+            case 0x2003: reasonStr = "Invalid packet received"; break;
+        }
+        printf("OnFrontDisconnected: reason=%d (%s)\n", nReason, reasonStr);
         fflush(stdout);
+        
+        // 5秒后尝试重连
+        printf("Will attempt to reconnect in 5 seconds...\n");
+        fflush(stdout);
+        std::thread([this]() {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            if (!m_isConnected) {
+                printf("Attempting to reconnect...\n");
+                fflush(stdout);
+                connect();
+            }
+        }).detach();
     }
 
     // 登录响应

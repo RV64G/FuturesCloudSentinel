@@ -164,12 +164,9 @@ Page {
                 }
                 maxPriceField.text = ""
                 minPriceField.text = ""
-                // 重置时间字段为今天日期
-                var today = new Date()
-                var yyyy = today.getFullYear()
-                var mm = String(today.getMonth() + 1).padStart(2, '0')
-                var dd = String(today.getDate()).padStart(2, '0')
-                timeField.text = yyyy + "-" + mm + "-" + dd + " 00:00:00"
+                // 重置为价格预警，时间字段清空（切换到时间预警时会自动填充）
+                typeCombo.currentIndex = 0
+                timeField.text = ""
                 deleteBtn.visible = false
                 alarmListView.currentIndex = -1 // Deselect list
             }
@@ -247,6 +244,22 @@ Page {
                         id: typeCombo
                         model: ["价格预警", "时间预警"]
                         Layout.fillWidth: true
+                        
+                        // 切换到时间预警时自动填充今天日期
+                        onCurrentIndexChanged: {
+                            if (currentIndex === 1) {
+                                // 检查时间字段是否为空或只有占位符
+                                // inputMask 会让空值显示为 "    -  -     :  :  " 类似格式
+                                var timeText = timeField.text.replace(/[\s\-:]/g, '')  // 移除空格、横杠、冒号
+                                if (timeText === "" || !/\d/.test(timeText)) {
+                                    var today = new Date()
+                                    var yyyy = today.getFullYear()
+                                    var mm = String(today.getMonth() + 1).padStart(2, '0')
+                                    var dd = String(today.getDate()).padStart(2, '0')
+                                    timeField.text = yyyy + "-" + mm + "-" + dd + " 00:00:00"
+                                }
+                            }
+                        }
                     }
 
                     Label { 
