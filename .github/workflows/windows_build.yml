@@ -10,6 +10,8 @@ jobs:
   build-client:
     runs-on: windows-latest
     name: Build Client
+    env:
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
     - uses: actions/checkout@v4
@@ -28,8 +30,6 @@ jobs:
         vcpkgGitCommitId: 'be563dfee81e88f9f6cf68839dff5b671b5cfb37'
         vcpkgDirectory: '${{ github.workspace }}/vcpkg'
         vcpkgJsonGlob: '**/AlarmingClient/vcpkg.json'
-      env:
-        VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
@@ -66,6 +66,8 @@ jobs:
   build-server:
     runs-on: windows-latest
     name: Build Server
+    env:
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
     - uses: actions/checkout@v4
@@ -86,12 +88,8 @@ jobs:
         vcpkgGitCommitId: 'be563dfee81e88f9f6cf68839dff5b671b5cfb37'
         vcpkgDirectory: '${{ github.workspace }}/vcpkg'
         runVcpkgInstall: false
-      env:
-        VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     - name: Install dependencies via vcpkg
-      env:
-        VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
       run: |
         ./vcpkg/vcpkg install mysql-connector-cpp:x64-windows nlohmann-json:x64-windows boost-asio:x64-windows
 
@@ -100,7 +98,7 @@ jobs:
       run: |
         $vcpkgInclude = "${{ github.workspace }}/vcpkg/installed/x64-windows/include"
         $vcpkgLib = "${{ github.workspace }}/vcpkg/installed/x64-windows/lib"
-        msbuild Server/Server.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:SolutionDir="${{ github.workspace }}/Server/" /p:IncludePath="$vcpkgInclude;$(IncludePath)" /p:LibraryPath="$vcpkgLib;$(LibraryPath)" /t:Build
+        msbuild Server/Server.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:SolutionDir="${{ github.workspace }}/Server/" "/p:IncludePath=$vcpkgInclude;`$(IncludePath)" "/p:LibraryPath=$vcpkgLib;`$(LibraryPath)" /t:Build
 
     - name: Collect Server Artifacts
       run: |
