@@ -91,13 +91,16 @@ jobs:
 
     - name: Install dependencies via vcpkg
       run: |
-        ./vcpkg/vcpkg install mysql-connector-cpp:x64-windows nlohmann-json:x64-windows
+        ./vcpkg/vcpkg install mysql-connector-cpp:x64-windows nlohmann-json:x64-windows boost-asio:x64-windows
 
     - name: Build Server
       working-directory: Server
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+        VCPKG_INSTALLED_DIR: ${{ github.workspace }}/vcpkg/installed/x64-windows
       run: |
+        $env:CL = "/I`"${{ github.workspace }}/vcpkg/installed/x64-windows/include`""
+        $env:LINK = "/LIBPATH:`"${{ github.workspace }}/vcpkg/installed/x64-windows/lib`""
         msbuild Server/Server.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:SolutionDir="${{ github.workspace }}/Server/" /t:Build
 
     - name: Collect Server Artifacts
